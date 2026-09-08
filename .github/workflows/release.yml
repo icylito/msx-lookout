@@ -15,9 +15,8 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      # Tauri always base64-decodes this secret. A pasted minisign file, stripped
-      # '=' padding, or extra whitespace all fail with "Invalid padding" only after
-      # createUpdaterArtifacts is on (v0.1.0 never reached this).
+      # Windows copy/paste into GitHub secrets often injects CR, BOM, and
+      # zero-width chars you cannot see. Log counts only — never the values.
       - name: Normalize updater signing key
         shell: pwsh
         env:
@@ -26,12 +25,30 @@ jobs:
         run: |
           if (-not $env:RAW_KEY) { Write-Error 'TAURI_SIGNING_PRIVATE_KEY is empty'; exit 1 }
           if (-not $env:RAW_PW) { Write-Error 'TAURI_SIGNING_PRIVATE_KEY_PASSWORD is empty'; exit 1 }
-          $k = $env:RAW_KEY.Trim().Trim([char]0xFEFF).Trim('"').Trim("'")
-          $p = $env:RAW_PW.Trim().Trim('"').Trim("'")
+          function Show-Hidden([string]$label, [string]$s) {
+            $cr = ([regex]::Matches($s, "`r")).Count
+            $lf = ([regex]::Matches($s, "`n")).Count
+            $bom = if ($s.Length -gt 0 -and [int][char]$s[0] -eq 0xFEFF) { 1 } else { 0 }
+            $zw = ([regex]::Matches($s, "[\u200B-\u200D\uFEFF\u00A0]")).Count
+            Write-Host "$label chars=$($s.Length) CR=$cr LF=$lf BOM=$bom zw/nbsp=$zw"
+          }
+          function Clean-Text([string]$s, [bool]$keepLf) {
+            if ($s.Length -gt 0 -and [int][char]$s[0] -eq 0xFEFF) { $s = $s.Substring(1) }
+            $s = $s -replace "[\u200B-\u200D\uFEFF\u00A0]", ''
+            $s = $s -replace "`r", ''
+            if (-not $keepLf) { $s = $s -replace "`n", '' }
+            return $s.Trim().Trim('"').Trim("'")
+          }
+          Show-Hidden 'key(raw)' $env:RAW_KEY
+          Show-Hidden 'password(raw)' $env:RAW_PW
+          $k = Clean-Text $env:RAW_KEY $true
+          $p = Clean-Text $env:RAW_PW $false
+          Show-Hidden 'key(clean)' $k
+          Show-Hidden 'password(clean)' $p
           $path = Join-Path $env:RUNNER_TEMP 'tauri-signing.key'
           $utf8 = New-Object System.Text.UTF8Encoding $false
           function Write-KeyFile([string]$content) {
-            $n = $content.Replace("`r`n", "`n").Replace("`r", "`n").Trim() + "`n"
+            $n = ($content.Trim() + "`n")
             [IO.File]::WriteAllText($path, $n, $utf8)
           }
           if ($k.StartsWith('untrusted comment:')) {
@@ -48,7 +65,7 @@ jobs:
               Write-Error 'decoded key does not start with untrusted comment: — paste the full .key file into the secret'
               exit 1
             }
-            Write-KeyFile $decoded
+            Write-KeyFile (Clean-Text $decoded $true)
             Write-Host 'key file: base64-decoded minisign'
           }
           Write-Host ("key file bytes=" + [IO.File]::ReadAllBytes($path).Length)
