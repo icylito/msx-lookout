@@ -26,27 +26,40 @@ jobs:
         run: |
           if (-not $env:RAW_KEY) { Write-Error 'TAURI_SIGNING_PRIVATE_KEY is empty'; exit 1 }
           if (-not $env:RAW_PW) { Write-Error 'TAURI_SIGNING_PRIVATE_KEY_PASSWORD is empty'; exit 1 }
-          $k = $env:RAW_KEY.Trim().Trim('"').Trim("'")
+          $k = $env:RAW_KEY.Trim().Trim([char]0xFEFF).Trim('"').Trim("'")
           $p = $env:RAW_PW.Trim().Trim('"').Trim("'")
-          if ($k.StartsWith('untrusted comment:')) {
-            $k = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($k))
-            Write-Host 'signing key: encoded raw minisign file'
-          } else {
-            $k = ($k -replace '\s','')
-            $pad = (4 - ($k.Length % 4)) % 4
-            if ($pad) { $k = $k + ('=' * $pad) }
-            try { [void][Convert]::FromBase64String($k) }
-            catch { Write-Error 'TAURI_SIGNING_PRIVATE_KEY is not valid base64'; exit 1 }
-            Write-Host 'signing key: normalized base64'
+          $path = Join-Path $env:RUNNER_TEMP 'tauri-signing.key'
+          $utf8 = New-Object System.Text.UTF8Encoding $false
+          function Write-KeyFile([string]$content) {
+            $n = $content.Replace("`r`n", "`n").Replace("`r", "`n").Trim() + "`n"
+            [IO.File]::WriteAllText($path, $n, $utf8)
           }
+          if ($k.StartsWith('untrusted comment:')) {
+            Write-KeyFile $k
+            Write-Host 'key file: raw minisign'
+          } else {
+            $b64 = ($k -replace '\s', '')
+            $pad = (4 - ($b64.Length % 4)) % 4
+            if ($pad) { $b64 = $b64 + ('=' * $pad) }
+            try { $bytes = [Convert]::FromBase64String($b64) }
+            catch { Write-Error 'TAURI_SIGNING_PRIVATE_KEY is not a minisign file or base64 of one'; exit 1 }
+            $decoded = [Text.Encoding]::UTF8.GetString($bytes)
+            if (-not $decoded.StartsWith('untrusted comment:')) {
+              Write-Error 'decoded key does not start with untrusted comment: — paste the full .key file into the secret'
+              exit 1
+            }
+            Write-KeyFile $decoded
+            Write-Host 'key file: base64-decoded minisign'
+          }
+          Write-Host ("key file bytes=" + [IO.File]::ReadAllBytes($path).Length)
           $d = 'GHA_' + [guid]::NewGuid().ToString('N')
-          Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY<<$d"
-          Add-Content -Path $env:GITHUB_ENV -Value $k
-          Add-Content -Path $env:GITHUB_ENV -Value $d
-          $d2 = 'GHA_' + [guid]::NewGuid().ToString('N')
-          Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY_PASSWORD<<$d2"
-          Add-Content -Path $env:GITHUB_ENV -Value $p
-          Add-Content -Path $env:GITHUB_ENV -Value $d2
+          $envLine = @(
+            "TAURI_SIGNING_PRIVATE_KEY=$path"
+            "TAURI_SIGNING_PRIVATE_KEY_PASSWORD<<$d"
+            $p
+            $d
+          ) -join "`n"
+          [IO.File]::AppendAllText($env:GITHUB_ENV, $envLine + "`n", $utf8)
 
       - uses: tauri-apps/tauri-action@v1
         env:
