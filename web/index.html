@@ -704,6 +704,8 @@
   .big { font-family:'Figtree', sans-serif; font-size:46px; font-weight:500; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
   .detail-price-row { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
   .detail-price-meta { margin-left:auto; font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.1em; color:var(--muted); padding-bottom:6px; white-space:nowrap; }
+  #spark { height:120px; margin-top:14px; }
+  #spark-caption { font-size:11px; letter-spacing:.08em; text-transform:uppercase; margin-top:6px; }
   .stat-row { display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--border); font-size:14px; }
   .stat-row .lbl { color:var(--muted); font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.1em; text-transform:uppercase; }
   .stat-row .val { font-variant-numeric:tabular-nums; font-weight:500; }
@@ -1717,6 +1719,7 @@ var browseRows = null;
       $('tb-' + o).classList.toggle('on', o === t);
       $('tab-' + o).classList.toggle('on', o === t);
     });
+    if (t === 'home') loadAppSettings().then(loadHome);
     if (t === 'browse' && !browseRows) loadBrowse();
     if (t === 'compare') loadWeeks();
     if (t === 'charts') initCharts();
@@ -2011,14 +2014,13 @@ function renderDividends(t, d) {
       h += '<div class="stat-row"><span class="lbl">On your ' + d.quantity + ' shares</span><span class="val">' +
         d.quantity + ' &times; ' + fmt(last.amount) + ' = <b>' + (d.quantity * last.amount).toFixed(3) + ' OMR</b></span></div>';
     } else {
-      h += '<p class="mut" style="font-size:12px;margin:8px 0 0">Your dividend = shares held &times; cash amount per share.</p>';
+      h += '<p class="mut" style="font-size:12.5px;margin:10px 0 0">Your dividend is shares held times the cash amount per share.</p>';
     }
-    if (divs.length > 1) {
-      h += '<div class="acts" style="margin-top:12px"><b>Recent dividends</b>' + divs.slice(0, 6).map(function (dv) {
-        return '<div class="mut">' + dv.ex_date + ' &middot; ' + fmt(dv.amount) + ' OMR' + (dv.pay_date ? ' &middot; paid ' + dv.pay_date : '') + '</div>';
-      }).join('') + '</div>';
-    }
-    h += '<p class="cal-caption" style="margin-top:10px">Dividend data via <a href="' + url + '" target="_blank" rel="noopener">stockanalysis.com</a> &mdash; <a href="' + url + '" target="_blank" rel="noopener">full history &rarr;</a></p>';
+    divs.slice(1, 6).forEach(function (dv) {
+      h += '<div class="stat-row"><span class="lbl">' + dv.ex_date +
+        (dv.pay_date ? ' · paid ' + dv.pay_date : '') + '</span><span class="val">' + fmt(dv.amount) + ' OMR</span></div>';
+    });
+    h += '<p class="cal-caption" style="margin-top:10px">Dividend data via <a href="' + url + '" target="_blank" rel="noopener">stockanalysis.com</a> · <a href="' + url + '" target="_blank" rel="noopener">full history &rarr;</a></p>';
   } else {
     h += '<p class="mut" style="font-size:13px;margin-top:6px">No dividend data cached yet.</p>' +
       '<p class="cal-caption" style="margin-top:6px"><a href="' + url + '" target="_blank" rel="noopener">See dividend history on stockanalysis &rarr;</a></p>';
@@ -2091,7 +2093,7 @@ function openDetail(t) {
         '<div class="' + cls(L.change_pct) + '" style="font-weight:600;font-size:15px">' + (L.change_pct != null ? sign(L.change_pct, 2) + '%' : '') + '</div>' +
         '<div class="detail-price-meta">OMR · CLOSE ' + (L.date || '—') + '</div></div>';
       if (d.gapNote) html += '<p style="font-size:13px;margin:6px 0;color:' + (d.gapNote.indexOf('Recovered') === 0 ? 'var(--good)' : 'var(--accent)') + '">' + d.gapNote + '</p>';
-      html += '<div id="spark" style="height:96px;margin-top:14px"></div><p class="mut" id="spark-caption" style="font-size:12px;margin-top:6px"></p>' +
+      html += '<div id="spark"></div><p class="mut" id="spark-caption"></p>' +
         '<div class="stat-row"><span class="lbl">Open</span><span class="val">' + fmt(L.open) + '</span></div>' +
         '<div class="stat-row"><span class="lbl">Day high</span><span class="val">' + fmt(L.high) + '</span></div>' +
         '<div class="stat-row"><span class="lbl">Day low</span><span class="val">' + fmt(L.low) + '</span></div>' +
@@ -2141,13 +2143,26 @@ function openDetail(t) {
     if (hasPrice && d.trend && d.trend.length && window.Plotly) {
       var last44 = d.trend.slice(-44);
       var closes = last44.map(function (p) { return p.close; });
+      var xs = last44.map(function (p) { return p.date; });
       var lo = Math.min.apply(null, closes), hi = Math.max.apply(null, closes);
+      var pad = (hi - lo) || (lo * 0.02) || 0.01;
+      var base = lo - pad * 0.4;
       $('spark-caption').textContent = 'LAST ' + last44.length + ' TRADING DAYS · LOW ' + fmt(lo) + ' · HIGH ' + fmt(hi);
-      Plotly.newPlot('spark', [{
-        x: last44.map(function (p) { return p.date; }), y: closes, mode: 'lines', fill: 'tozeroy',
-        line: { color: cssVar('--accent'), width: 1.6 }, fillcolor: 'rgba(184,92,62,.13)',
-      }], chartLayout({ margin: { l: 4, r: 4, t: 4, b: 4 }, height: 96, xaxis: { visible: false }, yaxis: { visible: false } }),
-        { displayModeBar: false, responsive: true });
+      Plotly.newPlot('spark', [
+        { x: xs, y: xs.map(function () { return base; }), mode: 'lines', line: { width: 0 }, hoverinfo: 'skip', showlegend: false },
+        { x: xs, y: closes, mode: 'lines', fill: 'tonexty',
+          line: { color: cssVar('--accent'), width: 1.8 }, fillcolor: 'rgba(184,92,62,.16)' },
+      ], chartLayout({
+        margin: { l: 8, r: 8, t: 8, b: 8 }, height: 120, showlegend: false,
+        xaxis: { visible: false },
+        yaxis: { visible: false, range: [base, hi + pad * 0.25] },
+      }), { displayModeBar: false, responsive: true }).then(function () {
+        // modal animates transform for 300ms; Plotly measures size too early otherwise
+        setTimeout(function () { if (window.Plotly && $('spark')) Plotly.Plots.resize('spark'); }, 320);
+      });
+    } else if (hasPrice && $('spark')) {
+      $('spark').style.display = 'none';
+      if ($('spark-caption')) $('spark-caption').textContent = 'no recent history to chart';
     }
 
     // watchlist pill: toggles a lightweight watch, independent of holding a real position
