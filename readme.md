@@ -6,7 +6,9 @@ This is a tool that tracks stocks on the Muscat Stock Exchange (MSX). Built for 
 
 ## How it works
 
-how it works diagram ![How it works](docs/how-it-works.svg)
+how it works diagram 
+
+![How it works](docs/how-it-works.svg)
 
 Every trading day (Sunday - Thursday, right after MSX closes, emails usually go out around 5pm) it pulls that day's prices for every listed stock from MSX's own site. Saves them in a database, nothing gets overwritten, so the history just keeps growing and you can look at older prices later.
 
