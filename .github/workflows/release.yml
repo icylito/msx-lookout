@@ -45,30 +45,25 @@ jobs:
           $p = Clean-Text $env:RAW_PW $false
           Show-Hidden 'key(clean)' $k
           Show-Hidden 'password(clean)' $p
-          $path = Join-Path $env:RUNNER_TEMP 'tauri-signing.key'
           $utf8 = New-Object System.Text.UTF8Encoding $false
-          function Write-KeyFile([string]$content) {
-            $n = ($content.Trim() + "`n")
-            [IO.File]::WriteAllText($path, $n, $utf8)
-          }
           if ($k.StartsWith('untrusted comment:')) {
-            Write-KeyFile $k
-            Write-Host 'key file: raw minisign'
+            $b64 = [Convert]::ToBase64String($utf8.GetBytes($k))
+            Write-Host 'secret: raw minisign, encoded to base64'
           } else {
             $b64 = ($k -replace '\s', '')
             $pad = (4 - ($b64.Length % 4)) % 4
             if ($pad) { $b64 = $b64 + ('=' * $pad) }
-            try { $bytes = [Convert]::FromBase64String($b64) }
+            try { $decoded = $utf8.GetString([Convert]::FromBase64String($b64)) }
             catch { Write-Error 'TAURI_SIGNING_PRIVATE_KEY is not a minisign file or base64 of one'; exit 1 }
-            $decoded = [Text.Encoding]::UTF8.GetString($bytes)
             if (-not $decoded.StartsWith('untrusted comment:')) {
-              Write-Error 'decoded key does not start with untrusted comment: — paste the full .key file into the secret'
+              Write-Error 'decoded key does not start with untrusted comment:'
               exit 1
             }
-            Write-KeyFile (Clean-Text $decoded $true)
-            Write-Host 'key file: base64-decoded minisign'
+            Write-Host 'secret: already base64 of a minisign file'
           }
-          Write-Host ("key file bytes=" + [IO.File]::ReadAllBytes($path).Length)
+          $path = Join-Path $env:RUNNER_TEMP 'tauri-signing.b64'
+          [IO.File]::WriteAllText($path, $b64, $utf8)
+          Write-Host ("b64 chars=" + $b64.Length)
           $d = 'GHA_' + [guid]::NewGuid().ToString('N')
           $envLine = @(
             "TAURI_SIGNING_PRIVATE_KEY=$path"
