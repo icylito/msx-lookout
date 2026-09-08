@@ -1,61 +1,67 @@
 # MSX Lookout
 
-Tracks stocks on the Muscat Stock Exchange. Built for one person. You check prices, keep what you hold, and get an email if a stock goes above or below a number you set.
+This is a tool that tracks stocks on the Muscat Stock Exchange (MSX). Built for 1 user to check prices, watch a personal portfolio, and know when a stock hits a price they wanted, whether its above, below, etc.
 
 ![Terminal view](docs/image-1.png)
 
 ## How it works
 
-![How it works](docs/how-it-works.svg)
+how it works diagram ![How it works](docs/how-it-works.svg)
 
-MSX trading days are Sunday to Thursday. After close, around 5pm, a job pulls that day's prices from MSX's own site and saves them. Nothing gets overwritten, so history just grows.
+Every trading day (Sunday - Thursday, right after MSX closes, emails usually go out around 5pm) it pulls that day's prices for every listed stock from MSX's own site. Saves them in a database, nothing gets overwritten, so the history just keeps growing and you can look at older prices later.
 
-It also checks alerts you set, BKMB below 1.400, that kind of thing, and can send a digest with gainers, losers, volume, and an Excel of the day. Corporate announcements from MSX get filed against the right company.
+It checks any alerts you set, like tell me if BKMB drops below 1.400, and emails a heads-up if one got crossed. There's a daily summary too. Top gainers/losers, volume, an excel snapshot attached so you can see the day without opening the app. That email thing might not stay free forever because a real domain is like $10/year if you want it looking proper. You can just leave it off.
 
-There's about two years of history already in there, mid-2024 on, so "did I buy at a fair price?" works for older positions too.
+It also watches MSX announcements for splits, dividends, new listings, and files them against the right company.
 
-The digest email needs a domain if you want it looking proper. That's about $10/year. If you don't bother, that part can stay off.
+Two years of history (mid-2024 onward) was pulled in already so "did I buy at a fair price?" works for older positions, not only stuff bought after this started.
 
 ## The app
 
-One file, `web/index.html`. No login. Open it and use it. Same file is what the Windows app wraps.
+One web page (`web/index.html`) is the front door. No login. Fully open, use it on the spot. It was meant to be offline first.
 
 ![The app](docs/image.png)
 
-My stocks is your watchlist. Price, day change, gain or loss in actual money.
+My stocks is the watchlist. What's held, today's price, day change, gain/loss in actual money.
 
-Browse is every listed company, not just yours. Search by name, ticker, or sector. Quiet names, nothing traded in a while, often under liquidation, are marked.
+Browse is every listed company not just yours. Filter by name, ticker, sector. There's a flag for anything that's gone quiet or never traded, mostly stocks under liquidation.
 
-Click a stock to add a position. Quantity, buy price, date. It checks that price against history and says if it looks right, close, or off. It never blocks the save.
+Click a stock to add a position. What you bought, at what price, on what date. It checks that price against the history and tells you if it looks right, close, or off, but it never blocks you from saving anyway.
 
-Alerts are end-of-day emails, not trade orders. A stock alert is not a broker order.
+Alerts / emails. Optional notify me when you're adding a position. These are end of day notices, not trade orders. A stock alert isn't a broker order.
 
-Charts are candles or area, volume, some drawing tools. Compare is two date ranges and what moved. Excel export is under Settings.
+Charts. Candles or area, volume, some drawing tools, trend lines, fibonacci, that kind of thing. Compare is two time periods, this week vs last, whatever, and what moved. There's suggestions like 1 day, 1 week, 1 month.
 
-If MSX is down the app says so and shows the last confirmed price and when it was from. It does not invent a number.
+Download excel from settings. Past exports sit in settings too.
 
-Offline is basic. Last load stays on the device. Bad wifi shows old data with a last-synced note, not a blank screen. Writes (settings, watch, save) queue locally and go out when you're back online.
-
-Settings is the gear. Theme, your name, how often prices and companies refresh, digest email, which emails you actually want.
+Settings is the gear. Light/dark/system, a display name, how often prices and companies refresh, and which emails you want.
 
 ```
-1  all email notifications     # everything
-2  new listings and delistings # a company joined or left MSX
-3  update failure alerts       # the daily pull is dying, so it isn't silent
+1 - all email notifications     # as the name says, every email we send
+2 - new listings and delistings # a company joined MSX or left, you'd know
+3 - update failure alerts       # if the updater keeps failing so it isn't silent
 ```
 
-Leave the email field empty and nothing gets sent. Turning the master switch off also stops everything, including the failure mail.
+Put the address in settings / general. Empty field means don't send. Master switch off also means don't send, including the failure ones.
 
-## Where it lives
+If MSX is down the app says so and shows the last confirmed price with a timestamp. It doesn't pretend nothing's wrong.
 
-Prices, companies, watchlist, alerts sit in one Supabase project.
+Offline is basic. Whatever it last loaded is saved on the device so a bad connection shows old data rather than nothing, with a last synced note so you know when you last got a real pull. Writes queue on the device and go out when you're back.
 
-Daily ingest, digest, alerts, company refresh, and a weekly backup are Edge Functions on a schedule. No extra servers. How often prices vs companies vs digest run is a setting in the app. Daily, weekly, monthly, or never.
+It's a Windows app too, Tauri, same page, self updating from github releases when there's a release up.
 
-The page is static HTML. GitHub Pages can host it. The Windows app is Tauri, same page, updates from GitHub Releases when a release exists.
+## Where everything lives
+
+Database is one Supabase project. Prices, companies, watchlist, alerts, all in there.
+
+The daily jobs (ingest prices, digest, alerts, company refresh, weekly backup) are Edge Functions on a schedule. No extra servers, everything in one place. How often prices vs companies vs digest run is a setting in the app, daily/weekly/monthly/never, your choice, not hardcoded.
+
+The web page is one static html file. GitHub Pages can host it.
+
+Emails go through Resend. Pick the address in settings and pick what you actually want.
 
 ## Status
 
-Works. Fork it if you want your own copy. Issues and PRs are fine. I'll update this file if something big breaks or gets fixed.
+Works. Hop in, try it. Leave an issue if something's off. Fork it if you want your own. PRs are fine, just leave a message on it.
 
-The Windows installer goes up when there's a release. Until then, `cargo tauri dev` is the window.
+Windows installer goes on github releases when I put one up. Until then `cargo tauri dev` is the window. Expect some edge cases, it's not fully clean. If something breaks make an issue and I'll deal with it, and I'll update this file if a big one got fixed.
