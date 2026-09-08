@@ -1,0 +1,30 @@
+.env
+node_modules/
+*.log
+*.xlsx
+pics/
+.claude/settings.local.json
+src-tauri/target/
+supabase/.temp/
+src-tauri/*.key
+.claude
+.vscode
+.env.example
+# owner-only — never commit (LOCAL.md is the agent private map)
+CLAUDE.md
+LOCAL.md
+/LOCAL.md
+structure.md
+PHASES.md
+progress.md
+STACK.md
+deployment.md
+findings.md
+work/
+Stock_exchange_frontend_update_UI
+.grill/
+future.txt
+run.md
+reference/
+new ui updates/
+bugs.md

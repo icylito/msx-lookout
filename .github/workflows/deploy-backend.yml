@@ -1,0 +1,96 @@
+name: Deploy backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**"
+      - "msx-client.ts"
+      - "cadence.ts"
+      - "excel.ts"
+      - "stockanalysis.ts"
+      - "email.ts"
+  workflow_dispatch: {}
+
+env:
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  PROJECT_REF: vmgtlszxilzrwcalmtrc
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type-check every entry point
+        run: deno task check
+
+      - name: Run unit tests
+        run: deno task test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project
+        run: supabase link --project-ref "$PROJECT_REF" --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
+
+      - name: Validate pending migrations (dry run)
+        run: supabase db push --dry-run
+
+      - name: Apply pending migrations
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 15
+          command: supabase db push
+
+      - name: Deploy Edge Functions
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 15
+          command: supabase functions deploy --project-ref "$PROJECT_REF"
+
+  smoke-test:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify the live app API returns real data
+        run: |
+          set -eu
+          URL="https://${PROJECT_REF}.supabase.co/functions/v1/app/data"
+
+          check() {
+            action="$1"
+            jq_filter="$2"
+            for i in 1 2 3 4 5; do
+              resp="$(curl -sS -X POST "$URL" -H "Content-Type: application/json" -d "{\"action\":\"$action\"}" || true)"
+              if echo "$resp" | jq -e "$jq_filter" > /dev/null 2>&1; then
+                echo "OK: action=$action passed ($jq_filter)"
+                return 0
+              fi
+              echo "action=$action attempt $i/5 not ready yet: $resp"
+              sleep 10
+            done
+            echo "FAILED: action=$action never returned a valid response after deploy"
+            echo "last response: $resp"
+            return 1
+          }
+
+          # companies: a non-empty list with the fields the frontend actually reads
+          check companies '(type == "array") and length > 0 and (.[0] | has("ticker") and has("name_en"))'
+          # home: the two RPC-backed views the frontend loads on open, both present
+          check home '(type == "object") and has("watchlist") and has("state")'

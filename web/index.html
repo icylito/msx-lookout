@@ -1,0 +1,3212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" id="theme-color-meta" content="#1f1e1d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MSX Lookout">
+<meta name="msapplication-TileColor" content="#b85c3e">
+<meta name="msapplication-TileImage" content="icon_192.png">
+<meta name="msapplication-config" content="none">
+<title>MSX Lookout</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icon_32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon_192.png">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icon_192.png">
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/klinecharts@10.0.0/dist/umd/klinecharts.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:wght@400;500&family=Figtree:wght@400;500;600&display=optional" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --page:    #1f1e1d;
+    --surface: #262624;
+    --surface2:#302f2c;
+    --border:  rgba(245,244,238,.10);
+    --border2: rgba(245,244,238,.20);
+    --text:    #f5f4ee;
+    --text2:   #c3c0b6;
+    --muted:   #8a8778;
+    --grid:    #38362f;
+
+    --accent:      #b85c3e; /* Claude clay — brand chrome: buttons, nav, focus */
+    --accent-hi:   #c56b4e;
+    --good:        #0ca30c; /* validated status green — gains, up */
+    --bad:         #d03b3b; /* validated status red — losses, down */
+
+    --cat-1: #3987e5; /* blue    */
+    --cat-2: #199e70; /* teal    */
+    --cat-3: #c98500; /* gold    */
+    --cat-4: #008300; /* green   */
+    --cat-5: #9085e9; /* violet  */
+    --cat-6: #e66767; /* red     */
+    --cat-7: #d55181; /* magenta */
+    --cat-8: #d95926; /* orange  */
+
+    /* iOS-26-style "liquid glass": translucent, blurred, soft inner highlight */
+    --glass-panel:    rgba(38,38,36,.70);
+    --glass-bg:       rgba(255,255,255,.07);
+    --glass-bg-hover: rgba(255,255,255,.13);
+    --glass-border:   rgba(255,255,255,.18);
+    --glass-hi:       rgba(255,255,255,.14);
+  }
+  /* light theme: same validation pass against the warm cream surface */
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) { --page:#f5f4ee; --surface:#ffffff; --surface2:#ffffff;
+      --border:rgba(31,30,29,.10); --border2:rgba(31,30,29,.18); --text:#1f1e1d; --text2:#55534e;
+      --grid:#e8e6de; --cat-1:#2a78d6; --cat-2:#1baf7a; --cat-3:#eda100; --cat-5:#4a3aa7;
+      --cat-6:#e34948; --cat-7:#e87ba4; --cat-8:#eb6834; color-scheme: light;
+      --glass-panel:rgba(255,255,255,.68); --glass-bg:rgba(255,255,255,.55);
+      --glass-bg-hover:rgba(255,255,255,.80); --glass-border:rgba(31,30,29,.12); --glass-hi:rgba(255,255,255,.9); }
+  }
+  :root[data-theme="light"] { --page:#f5f4ee; --surface:#ffffff; --surface2:#ffffff;
+    --border:rgba(31,30,29,.08); --border2:rgba(31,30,29,.14); --text:#1f1e1d; --text2:#55534e;
+    --grid:#e8e6de; --cat-1:#2a78d6; --cat-2:#1baf7a; --cat-3:#eda100; --cat-5:#4a3aa7;
+    --cat-6:#e34948; --cat-7:#e87ba4; --cat-8:#eb6834; color-scheme: light;
+    --glass-panel:rgba(255,255,255,.68); --glass-bg:rgba(255,255,255,.55);
+    --glass-bg-hover:rgba(255,255,255,.80); --glass-border:rgba(31,30,29,.12); --glass-hi:rgba(255,255,255,.9); }
+  * { box-sizing:border-box; margin:0; }
+  body {
+    font-family: 'Figtree', system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+    background: var(--page); color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* one sticky stack: titlebar + brand + tabs stay put so window controls
+     and nav never scroll off (reference 1-2 / 2-2). z-index above page
+     content and chart loading overlays, below the settings modal (11). */
+  #chrome {
+    position: sticky; top: 0; z-index: 6;
+    background: var(--page);
+  }
+  header {
+    background: var(--page);
+    border-bottom: 1px solid var(--border);
+    padding: 28px 20px 0;
+  }
+  .brand { display:flex; align-items:flex-start; gap:10px; margin-bottom:18px; position:relative; max-width:760px; margin-left:auto; margin-right:auto; }
+  .brand img { height:38px; width:38px; border-radius:10px; display:block; flex:none; }
+  .brand-word { margin-right:auto; }
+  .hdr-kicker {
+    font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.16em;
+    color:var(--muted); margin-bottom:5px; text-transform:uppercase;
+  }
+  h1 { font-family:'Newsreader', serif; font-size:22px; font-weight:500; letter-spacing:-.01em; }
+  .header-right { display:flex; flex-direction:column; align-items:flex-end; gap:9px; flex:none; }
+  .status-lines { display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
+  .status-line { display:flex; align-items:center; gap:6px; }
+  .status-dot {
+    width:5px; height:5px; border-radius:1px; background:var(--good); flex:none; transition:background .15s;
+  }
+  .status-dot.fail { background:var(--bad); }
+  .status-dot.warn { background:var(--accent); }
+  .status-dot.run { background:var(--bad); animation:sync-pulse 1.1s ease-in-out infinite; }
+  .status-lbl { font-weight:600; font-size:10px; letter-spacing:.1em; color:var(--muted); white-space:nowrap; }
+  #menu-btn {
+    display:flex; align-items:center; gap:5px; padding:6px 12px 6px 9px; border-radius:999px;
+    border:1px solid var(--accent); background:transparent; color:var(--accent); cursor:pointer; transition:.15s;
+    font-weight:600; font-size:9.5px; letter-spacing:.13em; white-space:nowrap;
+  }
+  #menu-btn:hover { background:rgba(184,92,62,.07); }
+  #menu-btn:active { transform:scale(.94); }
+  #menu-btn svg { width:13px; height:13px; flex:none; }
+
+  /* ---- settings modal ---- */
+  #settings-modal {
+    position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:min(660px, 94vw); min-height:min(560px, 80vh);
+    background:var(--page); border:1px solid var(--border2); border-radius:20px; z-index:11; display:none;
+    overflow:hidden; flex-direction:row; animation:sheet-up .3s cubic-bezier(.2,.9,.2,1) forwards;
+  }
+  #settings-modal.open { display:flex; }
+  .settings-sidebar {
+    width:196px; flex:none; border-right:1px solid var(--border);
+    padding:34px 0 34px 28px; display:flex; flex-direction:column; gap:4px; overflow-y:auto;
+  }
+  .settings-logo { display:flex; align-items:center; gap:10px; margin-bottom:26px; }
+  .settings-logo img { width:26px; height:26px; border-radius:8px; display:block; flex:none; }
+  .settings-logo .kicker2 { font-family:'Figtree', sans-serif; font-weight:600; font-size:8.5px; letter-spacing:.15em; color:var(--muted); margin-bottom:2px; }
+  .settings-logo .word2 { font-family:'Newsreader', serif; font-size:14px; font-weight:500; letter-spacing:-.01em; color:var(--text); }
+  @media (max-width:560px) {
+    #settings-modal { flex-direction:column; top:50%; transform:translate(-50%,-50%); height:min(640px, 92vh); }
+    .settings-sidebar {
+      width:auto; flex-direction:row; border-right:none; border-bottom:1px solid var(--border); padding:16px;
+      overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;
+    }
+    .settings-logo { display:none; }
+    .settings-nav { flex:none; }
+  }
+  .settings-nav {
+    text-align:left; padding:13px 0; border:none; background:transparent; display:flex; align-items:center; gap:10px;
+    color:var(--muted); font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.12em;
+    text-transform:uppercase; cursor:pointer; transition:color .15s;
+  }
+  .settings-nav:hover { color:var(--text); }
+  .settings-nav.on { color:var(--text); }
+  .settings-content { flex:1; padding:34px 34px 38px; overflow-y:auto; position:relative; }
+  .settings-close {
+    position:absolute; top:20px; right:20px; width:30px; height:30px; border-radius:50%; border:1px solid var(--border2);
+    background:transparent; color:var(--text2); font-size:16px; line-height:1; cursor:pointer; transition:.15s;
+  }
+  .settings-close:hover { color:var(--accent); border-color:var(--accent); }
+  .settings-pane { display:none; }
+  .settings-pane.on { display:block; animation:fade-in .18s ease; }
+  .settings-pane h3 { font-family:'Newsreader', serif; font-size:26px; font-weight:500; margin-bottom:28px; }
+  .settings-row {
+    display:flex; align-items:center; justify-content:space-between; padding:13px 0 13px 0; border-bottom:1px solid var(--border);
+    cursor:pointer; font-size:14px; color:var(--text2); transition:padding-left .16s;
+  }
+  .settings-row.on { color:var(--text); font-weight:600; padding-left:10px; }
+  .settings-row .check { opacity:0; font-weight:800; color:var(--accent); }
+  .settings-row.on .check { opacity:1; }
+  .settings-group { margin-bottom:20px; }
+  .settings-group-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; font-weight:600; margin-bottom:6px; }
+  /* notification toggle rows: plain-language label + one-line why on the left, ON/OFF switch on the right */
+  .ntf-row { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:14px 0; border-bottom:1px solid var(--border); }
+  .ntf-row .ntf-txt { flex:1; min-width:0; }
+  .ntf-row .ntf-name { font-size:14px; color:var(--text); }
+  .ntf-row .ntf-why { font-size:12px; color:var(--muted); margin-top:3px; }
+  .ntf-row.off .ntf-name, .ntf-row.off .ntf-why { opacity:.45; }
+  .ntf-switch.cmp-switch { width:78px; height:28px; flex-shrink:0; }
+  .freq-toggle {
+    display:flex; gap:20px; border:none; border-radius:0; overflow:visible; width:fit-content;
+    border-bottom:1px solid var(--border); padding-bottom:1px;
+  }
+  .settings-group .freq-toggle + .mut { margin-top:16px; }
+  #app-update-group #app-version-text { margin:6px 0 14px; }
+  #freq-price, #freq-company { gap:22px; }
+  #pane-general h3 { margin-bottom:22px; }
+  #pane-general .field:first-of-type { margin-top:0; }
+  .freq-toggle .tpick-opt {
+    padding:5px 0; border:none; border-radius:0; background:transparent; color:var(--muted);
+    font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.12em;
+    box-shadow:inset 0 -1px 0 transparent; transition:color .16s, box-shadow .16s; white-space:nowrap;
+  }
+  .freq-toggle .tpick-opt:hover { color:var(--text); }
+  .freq-toggle .tpick-opt.on { background:transparent; color:var(--text); box-shadow:inset 0 -1px 0 var(--accent); }
+  /* ---- Role 2 (committing action): outlined pill, idle = clay, busy = muted, done = green ---- */
+  .btn-pill {
+    padding:8px 17px; border:1px solid var(--accent); border-radius:999px; background:transparent;
+    font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.13em; text-transform:uppercase;
+    color:var(--accent); cursor:pointer; transition:transform .12s, color .15s, border-color .15s, background .15s;
+  }
+  .btn-pill:hover:not(:disabled) { background:rgba(184,92,62,.07); }
+  .btn-pill:active:not(:disabled) { transform:scale(.96); }
+  .btn-pill:disabled { border-color:var(--border2); color:var(--muted); cursor:default; }
+  .btn-pill.done { border-color:var(--good); color:var(--good); cursor:default; }
+  /* transient gray "SAVED" for the settings save buttons — deliberately muted, NOT the green
+     .done other committing pills persist. The connection light, not the button, tells you
+     whether the save is live on the server yet. Reverts after 1.5s. See CLAUDE.md button roles. */
+  .btn-pill.saved { border-color:var(--border2); color:var(--muted); cursor:default; }
+  /* ---- Role 3 (inline action): bare clay caps ---- */
+  .btn-inline {
+    padding:0; border:none; background:transparent; font-family:'Figtree', sans-serif; font-weight:600;
+    font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); cursor:pointer;
+  }
+  .btn-inline:disabled { color:var(--muted); cursor:default; }
+  .exports-folder { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; font-weight:600; margin:16px 0 6px; }
+  .exports-folder:first-child { margin-top:0; }
+  .exports-file {
+    display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--border);
+    font-size:13.5px;
+  }
+  .exports-file .sz { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  .banner {
+    padding:10px 14px; border-radius:12px; font-size:13.5px; margin-bottom:10px; display:none;
+    border:1px solid transparent;
+  }
+  #offline { background:rgba(201,133,0,.12); color:#e0ab3a; border-color:rgba(201,133,0,.30); }
+  #stale   { background:rgba(208,59,59,.12); color:#e67d7d; border-color:rgba(208,59,59,.30); }
+  /* ---- updater row: persistent bottom-of-page manual update control ---- */
+  #upd-row { max-width:760px; margin:56px auto 0; padding:20px 28px 40px; border-top:1px solid var(--border2); }
+  #upd-btn {
+    background:none; border:none; padding:0; cursor:pointer; color:var(--accent);
+    font-family:'Figtree', sans-serif; font-weight:600; font-size:11px; letter-spacing:.13em; text-transform:uppercase;
+  }
+  #upd-btn.done { color:var(--good); } #upd-btn.failed { color:var(--bad); }
+  #upd-btn:disabled { cursor:default; }
+  #upd-sub { font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; color:var(--muted); letter-spacing:.06em; margin-top:5px; text-transform:uppercase; }
+  #upd-bar-track { height:1px; background:var(--border); margin-top:12px; overflow:hidden; }
+  #upd-bar { height:100%; width:0; background:var(--accent); transition:width .35s ease; position:relative; }
+  #upd-bar.shimmer::after {
+    content:''; position:absolute; inset:0; background:linear-gradient(90deg, transparent, rgba(255,255,255,.5), transparent);
+    background-size:200% 100%; animation:upd-shimmer 1.2s linear infinite;
+  }
+  @keyframes upd-shimmer { from { background-position:200% 0; } to { background-position:-200% 0; } }
+  @keyframes sync-pulse { 0%, 100% { opacity:.35; transform:scale(.8); } 50% { opacity:1; transform:scale(1); } }
+  #update-banner {
+    position:fixed; top:14px; left:14px; z-index:15; display:none; align-items:center; gap:10px;
+    padding:8px 8px 8px 16px; border-radius:999px; font-size:13px; font-weight:600; color:var(--text2);
+    background:var(--surface2); border:1px solid var(--border2); box-shadow:0 8px 24px rgba(0,0,0,.3);
+  }
+  #update-banner.on { display:flex; }
+  html.tauri #update-banner { top:46px; }
+  /* custom window chrome — hidden in the browser, shown only when Tauri window APIs exist */
+  #tbar {
+    display:none; height:36px; flex:none; align-items:stretch;
+    background:var(--page); border-bottom:1px solid var(--border); user-select:none;
+  }
+  #tbar.on { display:flex; }
+  #tbar .tbar-drag, #tbar .tbar-drag * {
+    flex:1; display:flex; align-items:center; padding:0 14px;
+    font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.14em;
+    color:var(--muted); text-transform:uppercase;
+    -webkit-app-region:drag; app-region:drag;
+  }
+  #tbar .tbar-controls { display:flex; flex:none; }
+  #tbar .tbar-controls button {
+    appearance:none; width:46px; height:36px; margin:0; padding:0; border:none;
+    background:transparent; color:var(--text2); cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center;
+    -webkit-app-region:no-drag; app-region:no-drag;
+  }
+  #tbar .tbar-controls button:hover { background:var(--surface2); color:var(--text); }
+  #tbar .tbar-controls #tbar-close:hover { background:var(--bad); color:#fff; }
+  #tbar .tbar-controls svg { width:12px; height:12px; display:block; }
+  .tpick { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .tpick-toggle { display:flex; gap:18px; }
+  #ch-view { gap:22px; }
+  .tpick-opt {
+    padding:5px 0; border:none; border-radius:0; background:transparent; color:var(--muted);
+    font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.12em;
+    box-shadow:inset 0 -1px 0 transparent; cursor:pointer; transition:color .16s, box-shadow .16s; white-space:nowrap;
+  }
+  .tpick-opt:hover { color:var(--text); }
+  .tpick-opt.on { background:transparent; color:var(--text); box-shadow:inset 0 -1px 0 var(--accent); }
+  .tpick-search {
+    position:relative; min-width:260px; flex:1; display:flex; align-items:center; gap:9px;
+    border-bottom:1px solid var(--border2); padding:9px 2px; transition:border-color .2s;
+  }
+  .tpick-search:focus-within { border-bottom-color:var(--accent); }
+  .tpick-search svg { width:15px; height:15px; color:var(--muted); flex:none; }
+  .tpick-search input {
+    flex:1; width:auto; padding:0; font-size:14.5px; color:var(--text);
+    border:none; border-radius:0; background:transparent; outline:none;
+  }
+  .tpick-search input::placeholder { color:var(--muted); }
+  /* flat, in-flow results (mirrors the Browse .cmd-results look) — rows are rendered as .cmd-row */
+  .tpick-results { width:100%; display:none; border-bottom:1px solid var(--border); margin:2px 0 4px; }
+  #ch-pills { width:100%; margin:4px 0 2px; }
+  .loading {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; min-height:360px; animation:loading-in .3s ease;
+  }
+  .loading.sm { min-height:140px; gap:12px; }
+  .loading-dots { display:flex; align-items:center; gap:6px; height:22px; }
+  .loading-dots span {
+    width:7px; height:7px; border-radius:50%; background:var(--accent);
+    box-shadow:0 0 7px rgba(184,92,62,.5);
+    animation:loading-wave 1.3s cubic-bezier(.45,0,.55,1) infinite;
+  }
+  .loading-dots span:nth-child(1) { animation-delay:0s; }
+  .loading-dots span:nth-child(2) { animation-delay:.11s; }
+  .loading-dots span:nth-child(3) { animation-delay:.22s; }
+  .loading-dots span:nth-child(4) { animation-delay:.33s; }
+  .loading-dots span:nth-child(5) { animation-delay:.44s; }
+  .loading-label { font-size:12.5px; color:var(--muted); letter-spacing:.03em; font-weight:600; }
+  .loading-overlay {
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:var(--page); opacity:0; pointer-events:none; transition:opacity .15s ease; z-index:2;
+  }
+  .loading-overlay.on { opacity:1; pointer-events:auto; }
+  #kc-wrap { position:relative; }
+  @keyframes loading-wave {
+    0%, 70%, 100% { transform:translateY(0) scale(.7); opacity:.35; }
+    35% { transform:translateY(-8px) scale(1); opacity:1; }
+  }
+  @keyframes loading-in { from { opacity:0; } to { opacity:1; } }
+  /* ---- detail sheet loading: sweeping rule + skeleton blocks ---- */
+  .sheet-loading-rule { position:relative; height:2px; background:var(--border); overflow:hidden; margin-bottom:22px; border-radius:2px; }
+  .sheet-loading-rule::after {
+    content:''; position:absolute; top:0; left:-30%; width:30%; height:100%; background:var(--accent);
+    animation:rule-sweep 1s linear infinite;
+  }
+  @keyframes rule-sweep { from { left:-30%; } to { left:100%; } }
+  .skel { height:14px; border-radius:6px; background:var(--border2); animation:skel 1.1s ease-in-out infinite; margin-bottom:10px; }
+  .skel:nth-child(2) { animation-delay:.1s; width:70%; }
+  .skel:nth-child(3) { animation-delay:.2s; width:45%; }
+  @keyframes skel { 0%, 100% { opacity:.5; } 50% { opacity:1; } }
+  .sheet-loading-label { font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.1em; color:var(--muted); text-transform:uppercase; margin-top:16px; }
+  /* ---- price chart (investing.com-style header/toolbar around the KLineCharts widget) ---- */
+  .ch-viewbar { justify-content:space-between; }
+  #ch-price-view { padding-top:8px; }
+  #ch-price-head, .ch-head { padding:0 0 18px; }
+  #ch-price-name, .ch-name { font-family:'Newsreader', serif; font-size:21px; color:var(--text2); margin-top:6px; }
+  #ch-price-row, .ch-row { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  #ch-price-value, .ch-value { font-family:'Figtree', sans-serif; font-size:68px; font-weight:500; letter-spacing:-.04em; line-height:.94; font-variant-numeric:tabular-nums; }
+  #ch-price-change, .ch-change { font-size:16px; font-weight:500; font-variant-numeric:tabular-nums; }
+  .kc-toolbar {
+    display:flex; align-items:center; gap:26px; flex-wrap:wrap; margin-bottom:14px;
+    padding-bottom:12px; border-bottom:1px solid var(--border2);
+  }
+  .kc-group { display:flex; gap:3px; flex-wrap:wrap; }
+  #kc-dur-group, #kc-type-group, #ch-days-pills { gap:18px; }
+  .kc-btn {
+    padding:7px 11px; font-size:12.5px; font-weight:600; border-radius:8px; line-height:1;
+    border:1px solid transparent; background:transparent; color:var(--text2); cursor:pointer; transition:.15s;
+    display:flex; align-items:center; gap:5px; white-space:nowrap;
+  }
+  .kc-btn:hover { background:rgba(128,128,128,.12); color:var(--text); }
+  .kc-btn.on { background:var(--accent); color:#fff; }
+  .kc-btn svg { width:15px; height:15px; display:block; flex:none; }
+  #kc-type-group .kc-btn, #kc-dur-group .kc-btn, #ch-days-pills .kc-btn {
+    background:none; border:none; border-radius:0; padding:0 0 4px; color:var(--muted);
+    font-family:'Figtree', sans-serif; letter-spacing:.11em; text-transform:uppercase;
+    border-bottom:2px solid transparent;
+  }
+  #kc-type-group .kc-btn { font-size:9.5px; }
+  #kc-dur-group .kc-btn, #ch-days-pills .kc-btn { font-size:10px; }
+  #kc-type-group .kc-btn:hover, #kc-dur-group .kc-btn:hover, #ch-days-pills .kc-btn:hover { background:none; color:var(--text); }
+  #kc-type-group .kc-btn.on, #kc-dur-group .kc-btn.on, #ch-days-pills .kc-btn.on { background:none; color:var(--text); border-bottom-color:var(--accent); }
+  #kc-type-group .kc-btn svg { display:none; }
+  #kc-readout {
+    display:flex; justify-content:space-between; font-family:'Figtree', sans-serif; font-weight:600;
+    font-size:10px; letter-spacing:.08em; color:var(--muted); text-transform:uppercase; margin:2px 0 8px;
+  }
+  #kc-chart { height:460px; background:var(--page); }
+  #ch-returns { margin-top:8px; }
+  #ch-returns .ret {
+    display:flex; align-items:center; justify-content:space-between; padding:20px 0;
+    border-bottom:1px solid var(--border); animation:riseA .34s cubic-bezier(.2,.8,.2,1) both;
+  }
+  #ch-returns .ret .lbl { font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; }
+  #ch-returns .ret .val { font-family:'Figtree', sans-serif; font-size:15px; font-weight:500; font-variant-numeric:tabular-nums; }
+  nav {
+    display:flex; gap:22px; padding:34px 20px 0; max-width:760px; margin:0 auto;
+    border-bottom:1px solid var(--border2);
+    overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:none;
+  }
+  nav::-webkit-scrollbar { display:none; }
+  /* auto-hide scrollbars: invisible at rest, thumb fades in only while scrolling (JS toggles html.scrolling) */
+  ::-webkit-scrollbar { width:10px; height:10px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:transparent; border-radius:8px; border:2px solid transparent; background-clip:padding-box; }
+  .scrolling::-webkit-scrollbar-thumb, .scrolling ::-webkit-scrollbar-thumb { background:var(--border2); background-clip:padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background:var(--muted); background-clip:padding-box; }
+  nav button { flex:none; }
+  nav button {
+    padding:0 0 12px; font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.13em;
+    text-transform:uppercase; border:none; border-bottom:2px solid transparent;
+    background:transparent; color:var(--muted); cursor:pointer; transition:.15s;
+  }
+  nav button:hover { color:var(--text); }
+  nav button.on { color:var(--text); border-bottom-color:var(--accent); }
+  main { padding:44px 28px 90px; max-width:760px; margin:0 auto; }
+  section { display:none; } section.on { display:block; }
+  section.on { animation:fade-in .25s ease; }
+  @keyframes fade-in { from { opacity:0; } to { opacity:1; } }
+  @keyframes riseA { from { opacity:0; transform:translateY(9px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes riseB { from { opacity:0; transform:translateY(9px); } to { opacity:1; transform:translateY(0); } }
+
+  /* ---- kicker / hero / subhead (shared across My Stocks / Browse / Compare / Charts) ---- */
+  .kicker { font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.14em; color:var(--accent); text-transform:uppercase; margin-bottom:26px; }
+  .hero-row { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  .hero-value {
+    font-family:'Figtree', sans-serif; font-weight:500; font-size:68px; letter-spacing:-.04em;
+    line-height:.94; font-variant-numeric:tabular-nums;
+  }
+  .hero-delta { font-family:'Figtree', sans-serif; font-weight:500; font-size:16px; padding-bottom:10px; }
+  .hero-meta { font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.12em; color:var(--muted); margin-left:auto; padding-bottom:14px; white-space:nowrap; }
+  .subhead { font-family:'Newsreader', serif; font-weight:400; font-size:21px; color:var(--text2); max-width:440px; line-height:1.35; margin-top:10px; }
+
+  /* ---- My Stocks ---- */
+  .secondary-row { display:flex; gap:64px; padding:34px 0 32px; border-bottom:1px solid var(--border2); flex-wrap:wrap; }
+  .secondary-block .lbl { font-family:'Figtree', sans-serif; font-weight:600; font-size:9.5px; letter-spacing:.13em; color:var(--muted); text-transform:uppercase; margin-bottom:6px; }
+  .secondary-block .val { font-family:'Figtree', sans-serif; font-weight:500; font-size:26px; font-variant-numeric:tabular-nums; }
+  .secondary-block .sub { font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; color:var(--muted); margin-top:4px; }
+  .prow {
+    display:flex; align-items:center; gap:20px; padding:24px 0; border-bottom:1px solid var(--border);
+    cursor:pointer; transition:padding-left .2s cubic-bezier(.2,.8,.2,1);
+    animation:riseA .5s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .prow:hover { padding-left:10px; }
+  .prow .idx { width:24px; flex:none; font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; color:var(--muted); }
+  .prow .main { flex:1; min-width:0; }
+  .prow .ticker { font-family:'Figtree', sans-serif; font-weight:600; font-size:17px; letter-spacing:-.012em; }
+  .prow .sub { font-size:12.5px; color:var(--muted); margin-top:6px; }
+  .prow .value { width:88px; flex:none; text-align:right; font-family:'Figtree', sans-serif; font-weight:500; font-size:15px; font-variant-numeric:tabular-nums; }
+  .prow .gl { width:82px; flex:none; text-align:right; font-family:'Figtree', sans-serif; font-weight:600; font-size:15px; font-variant-numeric:tabular-nums; }
+  .prow .gl .pct { display:block; font-size:11px; font-weight:600; margin-top:3px; }
+  .footer-line {
+    display:flex; align-items:center; justify-content:space-between; margin-top:56px; padding-top:20px;
+    border-top:1px solid var(--border2); font-family:'Figtree', sans-serif; font-weight:600; font-size:10px;
+    letter-spacing:.1em; color:var(--muted); text-transform:uppercase; flex-wrap:wrap; gap:10px;
+  }
+  .footer-line a, .text-btn {
+    color:var(--accent); cursor:pointer; background:none; border:none; font:inherit; padding:0; transition:.15s;
+  }
+  .footer-line a:hover, .text-btn:hover { color:var(--text); }
+
+  /* ---- Browse: command search, sector heatmap, scope toggle, sortable header, rows ---- */
+  .cmd-search { position:relative; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--border2); padding:12px 2px; margin-top:30px; transition:border-color .2s; }
+  .cmd-search.on { border-bottom-color:var(--accent); }
+  .cmd-search svg { width:15px; height:15px; color:var(--muted); flex:none; }
+  .cmd-search input { flex:1; background:transparent; border:none; outline:none; font-family:'Figtree', sans-serif; font-size:17px; color:var(--text); }
+  .cmd-search input::placeholder { color:var(--muted); }
+  .cmd-k-chip { font-family:'Figtree', sans-serif; font-weight:600; font-size:11px; color:var(--muted); border:1px solid var(--border2); border-radius:6px; padding:4px 7px; flex:none; }
+  .cmd-results { border-bottom:1px solid var(--border); margin-bottom:8px; }
+  .cmd-results .cmd-row {
+    display:flex; align-items:center; justify-content:space-between; padding:10px 2px; cursor:pointer;
+    animation:riseA .3s cubic-bezier(.2,.8,.2,1) both; font-size:14px;
+  }
+  .cmd-results .cmd-row:hover, .cmd-results .cmd-row.active { color:var(--accent); background:rgba(184,92,62,.06); margin:0 -8px; padding:10px 8px; }
+  .cmd-results .cmd-row .tag { font-family:'Figtree', sans-serif; font-weight:600; font-size:9px; letter-spacing:.1em; color:var(--muted); border:1px solid var(--border2); border-radius:6px; padding:2px 6px; }
+
+  .heatmap-head { display:flex; align-items:center; justify-content:space-between; margin-top:28px; margin-bottom:12px; }
+  .heatmap-head .lbl { font-family:'Figtree', sans-serif; font-weight:600; font-size:9.5px; letter-spacing:.13em; color:var(--muted); text-transform:uppercase; }
+  .clear-filter { font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.08em; color:var(--accent); cursor:pointer; opacity:0; transition:opacity .2s; }
+  .clear-filter.on { opacity:1; }
+  .heatmap-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:26px; }
+  .heat-tile {
+    padding:16px 16px 18px; border:1px solid var(--border2); border-radius:14px; cursor:pointer;
+    transition:transform .15s, border-color .15s;
+  }
+  .heat-tile:hover { transform:translateY(-3px); border-color:var(--accent); }
+  .heat-tile.on { transform:translateY(-1px) scale(.985); border-color:var(--accent); }
+  .heat-tile .name { font-family:'Figtree', sans-serif; font-weight:600; font-size:9px; letter-spacing:.12em; color:var(--muted); text-transform:uppercase; margin-bottom:8px; }
+  .heat-tile .avg { font-family:'Figtree', sans-serif; font-weight:500; font-size:22px; font-variant-numeric:tabular-nums; }
+  .heat-tile .cnt { font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; color:var(--muted); margin-top:6px; }
+
+  .scope-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+  .scope-toggle { display:flex; border:1px solid var(--border2); border-radius:999px; overflow:hidden; }
+  .scope-toggle button {
+    padding:7px 16px; border:none; background:transparent; color:var(--muted); cursor:pointer;
+    font-family:'Figtree', sans-serif; font-weight:600; font-size:9.5px; letter-spacing:.11em; transition:.15s;
+  }
+  .scope-toggle button.on { background:var(--text); color:var(--page); }
+  .scope-count { font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.08em; color:var(--muted); }
+
+  .sort-header { display:flex; align-items:center; gap:0; border-bottom:1px solid var(--border2); padding-bottom:10px; }
+  .sort-col {
+    font-family:'Figtree', sans-serif; font-weight:600; font-size:9.5px; letter-spacing:.13em; color:var(--muted);
+    text-transform:uppercase; cursor:pointer; display:flex; align-items:center; gap:4px; user-select:none; transition:.15s;
+  }
+  .sort-col:hover { color:var(--text); }
+  .sort-col.active { color:var(--text); }
+  .sort-col .arrow { opacity:0; transition:opacity .2s, transform .2s; font-size:9px; }
+  .sort-col.active .arrow { opacity:1; }
+  .sort-col.desc .arrow { transform:rotate(180deg); }
+  .sort-col.flex1 { flex:1; }
+  .sort-col.w82 { width:82px; justify-content:flex-end; }
+  .sort-col.w74 { width:74px; justify-content:flex-end; }
+  .sort-col.w66 { width:66px; justify-content:flex-end; }
+
+  .brow {
+    display:flex; align-items:center; gap:20px; padding:24px 0; border-bottom:1px solid var(--border);
+    cursor:pointer; transition:padding-left .2s cubic-bezier(.2,.8,.2,1);
+    animation:riseA .5s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .brow:hover { padding-left:10px; }
+  .brow .watchdot { width:6px; flex:none; color:var(--accent); font-size:6px; opacity:0; }
+  .brow .watchdot.on { opacity:1; }
+  .brow .main { flex:1; min-width:0; }
+  .brow .ticker { font-family:'Figtree', sans-serif; font-weight:600; font-size:17px; letter-spacing:-.012em; }
+  .brow .sub { font-size:12.5px; color:var(--muted); margin-top:6px; }
+  .brow .price { width:82px; flex:none; text-align:right; font-family:'Figtree', sans-serif; font-weight:500; font-size:17px; font-variant-numeric:tabular-nums; }
+  .brow .change { width:74px; flex:none; text-align:right; font-family:'Figtree', sans-serif; font-weight:600; font-size:14px; font-variant-numeric:tabular-nums; color:var(--text2); }
+  .brow .last { width:66px; flex:none; text-align:right; font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; color:var(--muted); }
+  .brow .last.quiet { color:var(--accent); }
+
+  /* ---- Compare: scope switch, stock picker, period chips, calendar ---- */
+  /* the two hero dates double as the target for the next calendar pick — Role-1 underline marks
+     which one you're editing, so period B can be chosen by hand instead of only auto-derived */
+  .cmp-target {
+    border:0; background:transparent; padding:0 2px 4px; margin:0; cursor:pointer; color:inherit;
+    text-align:left; box-shadow:inset 0 -1px 0 transparent; transition:box-shadow .15s, color .15s;
+  }
+  .cmp-target.on { box-shadow:inset 0 -2px 0 var(--accent); }
+  .cmp-target-b { font-family:'Figtree', sans-serif; font-size:20px; color:var(--muted); padding-bottom:6px; }
+  .cmp-target-b:hover { color:var(--text2); }
+  .cmp-target-b:empty { display:none; }
+  #cmp-b-auto { padding-bottom:8px; }
+  .cmp-scope-row { display:flex; align-items:center; gap:14px; margin:30px 0 20px; flex-wrap:wrap; }
+  .cmp-scope-row .lbl { font-family:'Figtree', sans-serif; font-weight:600; font-size:9.5px; letter-spacing:.13em; color:var(--muted); }
+  .cmp-switch {
+    position:relative; width:100px; height:30px; border:1px solid var(--border2); border-radius:999px;
+    background:transparent; cursor:pointer; padding:0;
+  }
+  .cmp-switch .knob {
+    position:absolute; top:2px; left:2px; width:calc(50% - 2px); height:calc(100% - 4px); border-radius:999px;
+    background:var(--text); transition:transform .22s cubic-bezier(.4,0,.2,1);
+  }
+  .cmp-switch[aria-checked="true"] .knob { transform:translateX(100%); }
+  .cmp-switch .opt {
+    position:absolute; top:0; width:50%; height:100%; display:flex; align-items:center; justify-content:center;
+    font-family:'Figtree', sans-serif; font-weight:600; font-size:9.5px; letter-spacing:.08em; color:var(--muted); transition:color .22s;
+  }
+  .cmp-switch .opt-all { left:0; } .cmp-switch .opt-mine { right:0; }
+  .cmp-switch[aria-checked="false"] .opt-all, .cmp-switch[aria-checked="true"] .opt-mine { color:var(--page); }
+  .scope-count { font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.06em; color:var(--muted); margin-left:auto; }
+  #cmp-picker-block { animation:fade-in .2s ease; margin-bottom:18px; }
+  .cmp-picker-head { display:flex; align-items:center; gap:14px; margin-bottom:12px; }
+  .cmp-picker-head .lbl { font-family:'Figtree', sans-serif; font-weight:600; font-size:9.5px; letter-spacing:.13em; color:var(--muted); }
+  .cmp-picker-head .link { font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; color:var(--muted); cursor:pointer; }
+  .cmp-picker-head .link.active { color:var(--accent); }
+  .cmp-pills { display:flex; flex-wrap:wrap; gap:8px; }
+  .cmp-pill {
+    display:flex; align-items:center; gap:7px; padding:7px 13px; border-radius:999px; border:1px solid var(--border2);
+    background:transparent; color:var(--muted); cursor:pointer; font-family:'Figtree', sans-serif; font-weight:600; font-size:12.5px; transition:.15s;
+  }
+  .cmp-pill:active { transform:scale(.96); }
+  .cmp-pill.on { border-color:var(--accent); color:var(--accent); background:rgba(184,92,62,.10); }
+  .period-chips { display:grid; grid-template-columns:1fr 1fr; column-gap:24px; margin:22px 0 4px; }
+  .period-row {
+    display:flex; flex-direction:column; gap:8px; padding-bottom:12px; margin-bottom:2px;
+    border-bottom:1px solid var(--border); cursor:pointer; transition:border-color .15s;
+  }
+  .period-row.active { border-bottom-color:var(--accent); }
+  .period-row .lbl { font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.1em; color:var(--muted); }
+  .period-row .val { font-size:15px; color:var(--text2); font-variant-numeric:tabular-nums; }
+  .period-row.active .lbl, .period-row.active .val { color:var(--accent); }
+  .period-row.active .lbl, .period-row.active .val { color:var(--accent); }
+  .cal-wrap { max-width:320px; margin:22px 0 10px; position:relative; }
+  .cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .cal-head button {
+    width:26px; height:26px; border-radius:50%; border:1px solid var(--border2); background:transparent; color:var(--text);
+    cursor:pointer; display:flex; align-items:center; justify-content:center; transition:.15s;
+  }
+  .cal-head button:disabled { opacity:.3; cursor:default; }
+  .cal-head button:not(:disabled):hover { border-color:var(--accent); color:var(--accent); }
+  .cal-title { font-family:'Figtree', sans-serif; font-weight:600; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:5px; }
+  .cal-weekdays, .cal-grid { display:grid; grid-template-columns:repeat(7, 1fr); gap:2px; }
+  .cal-weekdays div { text-align:center; font-family:'Figtree', sans-serif; font-weight:600; font-size:9px; color:var(--muted); padding-bottom:6px; }
+  .cal-day {
+    height:30px; display:flex; align-items:center; justify-content:center; border-radius:8px; cursor:pointer;
+    font-size:12.5px; font-variant-numeric:tabular-nums; transition:.1s;
+    -webkit-user-select:none; user-select:none;
+  }
+  .cal-day:hover:not(.disabled) { background:rgba(128,128,128,.12); }
+  .cal-day.disabled { opacity:.35; cursor:default; }
+  .cal-day.today { border:1px solid var(--border2); }
+  /* period B sits under period A: quieter, and listed first so A always wins an overlap */
+  .cal-day.b-in-range { background:rgba(128,128,128,.10); color:var(--text2); }
+  .cal-day.b-selected { background:transparent; color:var(--text); box-shadow:inset 0 0 0 1.5px var(--border2); }
+  .cal-day.in-range { background:rgba(184,92,62,.14); color:var(--accent); }
+  .cal-day.selected { background:var(--accent); color:#fff; box-shadow:none; }
+  .cal-day.empty { visibility:hidden; }
+  .cal-year-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+  .cal-year-row { display:flex; justify-content:center; gap:16px; margin-bottom:10px; font-family:'Figtree', sans-serif; font-weight:600; font-size:13px; }
+  .cal-year-row span { cursor:pointer; padding:4px 8px; border-radius:6px; }
+  .cal-year-row span.on { background:var(--accent); color:#fff; }
+  .cal-month-cell {
+    padding:10px 4px; text-align:center; border-radius:8px; cursor:pointer; font-size:12.5px; font-family:'Figtree', sans-serif;
+  }
+  .cal-month-cell:hover:not(.disabled) { background:rgba(128,128,128,.12); }
+  .cal-month-cell.disabled { opacity:.35; cursor:default; }
+  .cal-caption { font-size:11.5px; color:var(--muted); margin-top:8px; }
+  .cmp-suggestions { margin:14px 0; }
+  .cmp-suggestions .sug-row {
+    display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border);
+    cursor:pointer; font-size:13.5px; transition:border-color .15s;
+  }
+  .cmp-suggestions .sug-row:hover { border-bottom-color:var(--accent); color:var(--accent); }
+  .cmp-footer { display:flex; align-items:center; gap:18px; margin:26px 0 20px; flex-wrap:wrap; }
+  .cmp-footer-summary { font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.08em; color:var(--muted); margin-left:auto; }
+  .cmp-results-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .cmp-row {
+    display:flex; align-items:center; gap:14px; padding:16px 0; border-bottom:1px solid var(--border);
+    animation:riseA .34s cubic-bezier(.2,.8,.2,1) both; font-size:14px;
+  }
+  .cmp-row .main { flex:1; min-width:0; }
+  .cmp-row .ticker { font-family:'Figtree', sans-serif; font-weight:600; }
+  .cmp-row .sub { font-size:12px; color:var(--muted); }
+  .cmp-row .cell { width:74px; flex:none; text-align:right; font-variant-numeric:tabular-nums; }
+  /* column labels: reuse .cmp-row's geometry so they line up with the numbers below */
+  .cmp-row.cmp-head {
+    animation:none; align-items:flex-end; padding:0 0 8px; border-bottom-color:var(--border2);
+    font-family:'Figtree', sans-serif; font-weight:600; font-size:9.5px; letter-spacing:.13em; color:var(--muted);
+  }
+  .cmp-row.cmp-head .cell { line-height:1.5; }
+  .cmp-row.cmp-head .per { display:block; letter-spacing:.06em; opacity:.72; }
+  #wl, #br-table { overflow-x:auto; }
+  table { width:100%; min-width:520px; border-collapse:collapse; background:var(--surface); border-radius:16px; overflow:hidden; font-size:14.5px; border:1px solid var(--border); }
+  th {
+    text-align:left; padding:12px 14px; background:rgba(255,255,255,.03); font-size:11px;
+    color:var(--muted); text-transform:uppercase; letter-spacing:.05em; font-weight:600;
+  }
+  td { padding:13px 14px; border-top:1px solid var(--border); vertical-align:middle; }
+  tr:hover td { background:rgba(255,255,255,.02); }
+  .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .up { color:var(--good); font-weight:600; } .down { color:var(--bad); font-weight:600; }
+  .badge { font-size:11px; padding:3px 9px; border-radius:999px; font-weight:600; }
+  .v  { background:rgba(12,163,12,.15); color:var(--good); }
+  .uv { background:rgba(255,255,255,.06); color:var(--muted); }
+  .act { background:rgba(144,133,233,.16); color:var(--cat-5); text-transform:capitalize; }
+  .stale { background:rgba(201,133,0,.14); color:#e0ab3a; }
+  .acts { margin:14px 0; padding:14px; background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:12px; }
+  .acts a { color:var(--cat-1); }
+  .bell { color:#f2b705; }
+  .x { color:var(--muted); cursor:pointer; border:none; background:none; font-size:16px; padding:4px; border-radius:6px; }
+  .x:hover { color:var(--bad); background:rgba(208,59,59,.10); }
+  .bar { display:flex; gap:10px; align-items:center; margin:16px 0; flex-wrap:wrap; }
+  /* flat, on-brand form controls (matches the search bars) — replaces the old glass boxes */
+  select, input[type=date], input[type=number] {
+    padding:8px 0 9px; font-size:14.5px; color:var(--text); font-variant-numeric:tabular-nums;
+    background:transparent; border:none; border-bottom:1px solid var(--border2); border-radius:0;
+    outline:none; transition:border-color .15s; appearance:none; -webkit-appearance:none;
+  }
+  select:focus, input:focus { outline:none; border-bottom-color:var(--accent); }
+  /* custom caret for selects (native one is removed by appearance:none) */
+  select { padding-right:20px; cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%238a8778' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 2px center; background-size:11px; }
+  /* strip native number spinners; tint the date picker icon to muted */
+  input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; appearance:none; margin:0; }
+  input[type=number] { -moz-appearance:textfield; appearance:textfield; }
+  input[type=date]::-webkit-calendar-picker-indicator { cursor:pointer; opacity:.55; }
+  /* modal links read as clay actions, not raw browser-blue */
+  #modal a, #settings-modal a { color:var(--accent); text-decoration:underline; text-underline-offset:2px; }
+  #modal a:hover, #settings-modal a:hover { color:var(--text); }
+  .totals { display:flex; gap:28px; margin-top:16px; font-size:14.5px; color:var(--text2); }
+  .totals b { font-size:19px; color:var(--text); }
+  body.modal-open { overflow:hidden; } /* lock the page behind an open modal — scroll the sheet, not the background */
+  #overlay { position:fixed; inset:0; background:rgba(31,30,29,.38); backdrop-filter:blur(4px); display:none; z-index:10; animation:veil-in .16s ease; }
+  @keyframes veil-in { from { opacity:0; } to { opacity:1; } }
+  /* both #modal and #settings-modal center via a static transform:translate(-50%,-50%);
+     the keyframes must include that same offset in every frame, or the CSS animation
+     engine replaces the static transform for the animation's duration and the sheet
+     visibly jumps from an uncentered position to centered when the animation ends. */
+  @keyframes sheet-up {
+    from { opacity:0; transform:translate(-50%,-50%) translateY(18px) scale(.985); }
+    to { opacity:1; transform:translate(-50%,-50%) translateY(0) scale(1); }
+  }
+  #modal {
+    position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:min(600px, 94vw); background:var(--page);
+    border:1px solid var(--border2); border-radius:20px; padding:30px 32px 28px; z-index:11; display:none; max-height:86vh; overflow:auto;
+    animation:sheet-up .3s cubic-bezier(.2,.9,.2,1) forwards;
+  }
+  .detail-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:18px; }
+  .detail-kicker { font-family:'Figtree', sans-serif; font-weight:600; font-size:9.5px; letter-spacing:.14em; color:var(--accent); text-transform:uppercase; margin-bottom:6px; }
+  #modal h2 { font-family:'Newsreader', serif; font-size:30px; font-weight:500; }
+  .detail-name { font-size:12.5px; color:var(--muted); margin-top:4px; }
+  .detail-head-right { display:flex; align-items:center; gap:10px; flex:none; }
+  .watch-pill {
+    display:flex; align-items:center; gap:7px; padding:6px 14px; border-radius:999px; border:1px solid var(--border2);
+    background:transparent; color:var(--text2); font-family:'Figtree', sans-serif; font-weight:600; font-size:11px;
+    letter-spacing:.06em; cursor:pointer; transition:.15s; white-space:nowrap;
+  }
+  .watch-pill:hover { border-color:var(--accent); }
+  .watch-pill:active { transform:scale(.95); }
+  .watch-pill.on { border-color:var(--accent); background:rgba(184,92,62,.10); color:var(--accent); }
+  .close-x {
+    width:32px; height:32px; border-radius:50%; border:1px solid var(--border2); background:transparent; color:var(--text2);
+    cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:16px; flex:none; transition:.15s;
+  }
+  .close-x:hover { color:var(--accent); border-color:var(--accent); }
+  .close-x:active { transform:scale(.9); }
+  .big { font-family:'Figtree', sans-serif; font-size:46px; font-weight:500; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+  .detail-price-row { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .detail-price-meta { margin-left:auto; font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.1em; color:var(--muted); padding-bottom:6px; white-space:nowrap; }
+  .stat-row { display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--border); font-size:14px; }
+  .stat-row .lbl { color:var(--muted); font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.1em; text-transform:uppercase; }
+  .stat-row .val { font-variant-numeric:tabular-nums; font-weight:500; }
+  .add-heading { font-family:'Newsreader', serif; font-size:24px; font-weight:500; margin-bottom:6px; }
+  .field-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px 22px; margin:18px 0; }
+  .field { margin:12px 0; } .field label { display:block; font-size:12.5px; color:var(--muted); margin-bottom:5px; }
+  .field input {
+    width:100%; padding:8px 0 9px; font-size:14.5px; color:var(--text); font-variant-numeric:tabular-nums;
+    background:transparent; border:none; border-bottom:1px solid var(--border2); border-radius:0; outline:none; transition:border-color .15s;
+  }
+  .field input:focus { border-bottom-color:var(--accent); }
+  .field input::placeholder { color:var(--muted); }
+  /* buy-date trigger — flat underline like the other fields; opens the clay calendar below */
+  .date-trigger { width:100%; text-align:left; padding:8px 0 9px; font-size:14.5px; color:var(--text);
+    background:transparent; border:none; border-bottom:1px solid var(--border2); cursor:pointer;
+    font-family:'Figtree', sans-serif; font-variant-numeric:tabular-nums; transition:border-color .15s; }
+  .date-trigger:hover, .date-trigger.open { border-bottom-color:var(--accent); }
+  .date-trigger.empty { color:var(--muted); }
+  #f-cal { margin-top:14px; }
+  #verdict { padding:4px 0 4px 14px; border-left:2px solid transparent; font-size:13.5px; margin:14px 0; display:none; }
+  #verdict.ok  { border-left-color:var(--good); color:var(--good); }
+  #verdict.bad { border-left-color:var(--bad); color:var(--bad); }
+  #verdict.mid { border-left-color:var(--accent); color:var(--accent); }
+  #verdict .cand-lead { display:block; margin-bottom:9px; }
+  #verdict .cand-row { display:flex; flex-wrap:wrap; gap:8px; }
+  #verdict .cand { font-size:12px; padding:6px 12px; }
+  #verdict .cand:hover { border-color:var(--accent); color:var(--accent); }
+  #verdict .cand .cand-px { opacity:.6; margin-left:1px; }
+  .alertrow { display:flex; gap:8px; align-items:center; margin:12px 0; flex-wrap:wrap; font-size:14px; color:var(--text2); }
+  .cmp-switch.alert-switch { width:112px; height:26px; flex-shrink:0; }
+  #chart { background:transparent; min-height:380px; }
+  #chart-wrap { position:relative; }
+  /* modern hover tooltip for the portfolio charts — clay left rule + soft layered shadow,
+     fades in; replaces Plotly's dated dark box (which is styled via SVG and can't do this) */
+  #chart-tip {
+    position:absolute; z-index:5; pointer-events:none; opacity:0; transform:translateY(3px);
+    transition:opacity .14s ease-out, transform .14s ease-out;
+    background:var(--surface); border:1px solid var(--border2); border-left:3px solid var(--accent);
+    border-radius:8px; padding:9px 13px; min-width:110px; max-width:240px;
+    box-shadow:0 1px 2px rgba(0,0,0,.05), 0 8px 22px rgba(0,0,0,.11);
+  }
+  #chart-tip.on { opacity:1; transform:translateY(0); }
+  #chart-tip .tip-lbl { font-family:'Newsreader', serif; font-size:13px; color:var(--text2); margin-bottom:4px; }
+  #chart-tip .tip-val { font-family:'Figtree', sans-serif; font-size:14px; font-weight:500; color:var(--text); font-variant-numeric:tabular-nums; }
+  #chart-tip .tip-pct { color:var(--accent); font-weight:600; margin-left:7px; }
+  .mut { color:var(--muted); font-size:13px; }
+  #synced { font-size:12px; color:var(--muted); margin-top:8px; }
+  hr { border:none; border-top:1px solid var(--border); margin:16px 0; }
+</style>
+</head>
+<body>
+<div id="chrome">
+<div id="tbar">
+  <div class="tbar-drag" data-tauri-drag-region>MSX Lookout</div>
+  <div class="tbar-controls">
+    <button type="button" id="tbar-min" aria-label="Minimize" title="Minimize">
+      <svg viewBox="0 0 12 12" aria-hidden="true"><rect x="1" y="5.5" width="10" height="1" fill="currentColor"/></svg>
+    </button>
+    <button type="button" id="tbar-max" aria-label="Maximize" title="Maximize">
+      <svg viewBox="0 0 12 12" aria-hidden="true"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+    </button>
+    <button type="button" id="tbar-close" aria-label="Close window" title="Close window">
+      <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+    </button>
+  </div>
+</div>
+<header>
+  <div class="brand">
+    <img src="icon.png" alt="">
+    <div class="brand-word">
+      <div class="hdr-kicker">Muscat Securities Market</div>
+      <h1>MSX Lookout</h1>
+    </div>
+    <div class="header-right">
+      <div class="status-lines">
+        <div class="status-line"><span class="status-dot" id="conn-dot"></span><span class="status-lbl" id="conn-lbl">ONLINE</span></div>
+        <div class="status-line"><span class="status-dot" id="status-dot-prices"></span><span class="status-lbl" id="status-lbl-prices">PRICES —</span></div>
+        <div class="status-line"><span class="status-dot" id="status-dot-companies"></span><span class="status-lbl" id="status-lbl-companies">COMPANIES —</span></div>
+        <div class="status-line"><span class="status-dot" id="status-dot-dividends"></span><span class="status-lbl" id="status-lbl-dividends">DIVIDENDS —</span></div>
+      </div>
+      <button id="menu-btn" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+          <path d="M19.4 13a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V19a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H4a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H10a1.65 1.65 0 0 0 1-1.51V4a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V10a1.65 1.65 0 0 0 1.51 1H20a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>SETTINGS</span>
+      </button>
+    </div>
+  </div>
+  <div id="offline" class="banner" style="max-width:760px;margin:0 auto 10px"></div>
+  <div id="stale" class="banner" style="max-width:760px;margin:0 auto 10px"></div>
+</header>
+<nav>
+  <button id="tb-home" class="on">My Stocks</button>
+  <button id="tb-browse">Browse</button>
+  <button id="tb-compare">Compare</button>
+  <button id="tb-charts">Charts</button>
+</nav>
+</div>
+<div id="update-banner"><span id="update-banner-text">Update ready</span><button class="btn-pill" id="update-restart-btn">Restart now</button></div>
+<main>
+  <section id="tab-home" class="on">
+    <div class="kicker" id="ms-kicker">MY STOCKS</div>
+    <div class="hero-row">
+      <div class="hero-value" id="ms-hero">0.000</div>
+      <div class="hero-delta" id="ms-hero-delta"></div>
+      <div class="hero-meta">TOTAL VALUE · OMR</div>
+    </div>
+    <p class="subhead" id="ms-subhead"></p>
+    <div id="ms-latest" class="mut" style="display:none;margin-top:4px;font-size:12.5px"></div>
+    <div class="secondary-row" id="ms-secondary" style="display:none">
+      <div class="secondary-block"><div class="lbl">Overall gain</div><div class="val" id="ms-overall-val"></div><div class="sub" id="ms-overall-pct"></div></div>
+      <div class="secondary-block"><div class="lbl">Today</div><div class="val" id="ms-today-val"></div><div class="sub" id="ms-today-pct"></div></div>
+    </div>
+    <div id="wl"></div>
+    <div class="footer-line" id="ms-footer" style="display:none"></div>
+    <div id="synced" class="mut" style="margin-top:10px;font-size:12px"></div>
+  </section>
+  <section id="tab-browse">
+    <div class="kicker">BROWSE</div>
+    <div class="hero-row">
+      <div class="hero-value" id="br-hero">0.00%</div>
+      <div class="hero-delta" id="br-hero-delta"></div>
+      <div class="hero-meta">MARKET AVERAGE · TODAY</div>
+    </div>
+    <p class="subhead">Every listed company, quiet ones included.</p>
+
+    <div class="cmd-search" id="br-cmd-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="br-filter" placeholder="Search a stock, ticker, or sector..." autocomplete="off">
+      <span class="cmd-k-chip">&#8984;K</span>
+    </div>
+    <div class="cmd-results" id="br-cmd-results" style="display:none"></div>
+
+    <div class="heatmap-head"><span class="lbl">Sectors today</span><span class="clear-filter" id="br-clear-sector">CLEAR FILTER</span></div>
+    <div class="heatmap-grid" id="br-heatmap"></div>
+
+    <div class="scope-row">
+      <div class="scope-toggle" id="br-scope">
+        <button data-scope="all" class="on">ALL COMPANIES</button>
+        <button data-scope="watch">MY WATCHLIST</button>
+      </div>
+      <span class="scope-count" id="br-count"></span>
+    </div>
+
+    <div class="sort-header" id="br-sort-header">
+      <span class="sort-col flex1" data-sort="name">COMPANY<span class="arrow">&#8593;</span></span>
+      <span class="sort-col w82" data-sort="price">PRICE<span class="arrow">&#8593;</span></span>
+      <span class="sort-col w74" data-sort="change">CHANGE<span class="arrow">&#8593;</span></span>
+      <span class="sort-col w66" data-sort="last">LAST TRADED<span class="arrow">&#8593;</span></span>
+    </div>
+    <div id="br-table"></div>
+    <p class="mut" id="br-footnote" style="font-size:12px;margin-top:14px"></p>
+  </section>
+  <section id="tab-compare">
+    <div class="kicker">COMPARE</div>
+    <div class="hero-row">
+      <button type="button" class="hero-value cmp-target on" style="font-size:44px" id="cmp-hero-a">Pick a range</button>
+      <button type="button" class="cmp-target cmp-target-b" id="cmp-hero-vs"></button>
+      <button type="button" class="btn-inline" id="cmp-b-auto" style="display:none">USE THE STRETCH BEFORE</button>
+    </div>
+    <p class="subhead">Pick any stretch on the calendar. It's measured against the stretch right before it, or click that second date to choose your own.</p>
+
+    <div class="cmp-scope-row">
+      <span class="lbl">SCOPE</span>
+      <button class="cmp-switch" id="cmp-switch" role="switch" aria-checked="false"><span class="knob"></span><span class="opt opt-all">ALL</span><span class="opt opt-mine">MINE</span></button>
+      <span class="scope-count" id="cmp-scope-summary">ALL LISTED COMPANIES</span>
+    </div>
+
+    <div id="cmp-picker-block" style="display:none">
+      <div class="cmp-picker-head"><span class="lbl">WHICH OF MY STOCKS</span><span class="link" id="cmp-pick-all">ALL</span><span class="link" id="cmp-pick-none">NONE</span></div>
+      <div class="cmp-pills" id="cmp-pills"></div>
+    </div>
+
+    <div class="cmd-search" id="cmp-search-wrap" style="margin-top:0">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="cmp-search" placeholder="Search a stock, or leave blank for all" autocomplete="off">
+    </div>
+    <div class="cmd-results" id="cmp-search-results" style="display:none"></div>
+
+    <div class="cal-wrap" id="cmp-cal">
+      <div class="cal-head">
+        <button id="cal-prev" type="button">&#8592;</button>
+        <span class="cal-title" id="cal-title">September 2026</span>
+        <button id="cal-next" type="button">&#8594;</button>
+      </div>
+      <div class="cal-weekdays" id="cal-weekdays"></div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-year-grid" id="cal-year-grid" style="display:none"></div>
+      <p class="cal-caption">History starts July 2024 · MSX is closed Fridays and Saturdays</p>
+      <div class="loading-overlay on" id="cmp-cal-loading"><div class="loading sm"><div class="loading-dots"><span></span><span></span><span></span><span></span><span></span></div><div class="loading-label">Loading</div></div></div>
+    </div>
+
+    <div class="cmp-suggestions" id="cmp-suggestions" style="display:none"></div>
+
+    <div class="cmp-footer">
+      <button class="btn-pill" id="cmp-run">RUN COMPARISON &#8594;</button>
+      <button class="btn-inline" id="cmp-clear">CLEAR</button>
+      <span class="cmp-footer-summary" id="cmp-footer-summary">PICK A RANGE</span>
+    </div>
+
+    <div id="cmp"></div>
+  </section>
+  <section id="tab-charts">
+    <div class="bar">
+      <div class="tpick" id="ch-tpick">
+        <input type="hidden" id="ch-ticker">
+        <div class="tpick-toggle">
+          <button type="button" class="tpick-opt" data-scope="all">All stocks</button>
+          <button type="button" class="tpick-opt" data-scope="mine">My stocks</button>
+        </div>
+        <div class="tpick-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input class="tpick-q" placeholder="Search or pick a stock..." autocomplete="off">
+        </div>
+        <div class="tpick-results"></div>
+        <div class="cmp-pills" id="ch-pills"></div>
+      </div>
+    </div>
+    <div class="bar ch-viewbar">
+      <div class="tpick-toggle" id="ch-view">
+        <button type="button" class="tpick-opt on" data-view="price">Price chart</button>
+        <button type="button" class="tpick-opt" data-view="bar">My stocks today</button>
+        <button type="button" class="tpick-opt" data-view="cmpmine">Compare mine</button>
+        <button type="button" class="tpick-opt" data-view="alloc">Allocation</button>
+      </div>
+      <select id="ch-days" style="display:none">
+        <option value="7">1 week</option>
+        <option value="30">1 month</option>
+        <option value="90" selected>3 months</option>
+        <option value="180">6 months</option>
+        <option value="365">1 year</option>
+        <option value="9999">All time</option>
+      </select>
+    </div>
+
+    <div class="kicker" id="ch-kicker">CHARTS</div>
+    <div id="ch-bd-head" class="ch-head" style="display:none">
+      <div class="ch-row"><span class="ch-value" id="ch-bd-value"></span><span class="ch-change" id="ch-bd-change"></span></div>
+      <div class="ch-name" id="ch-bd-name"></div>
+    </div>
+    <div class="kc-group" id="ch-days-pills" style="display:none;margin:2px 0 18px">
+      <button type="button" class="kc-btn" data-days="7">1W</button>
+      <button type="button" class="kc-btn" data-days="30">1M</button>
+      <button type="button" class="kc-btn on" data-days="90">3M</button>
+      <button type="button" class="kc-btn" data-days="180">6M</button>
+      <button type="button" class="kc-btn" data-days="365">1Y</button>
+      <button type="button" class="kc-btn" data-days="9999">All</button>
+    </div>
+    <div id="ch-price-view">
+      <div id="ch-price-head">
+        <div id="ch-price-row"><span id="ch-price-value"></span><span id="ch-price-change"></span></div>
+        <div id="ch-price-name"></div>
+      </div>
+      <div class="kc-toolbar">
+        <div class="kc-group" id="kc-dur-group">
+          <button type="button" class="kc-btn dur" data-days="7">1W</button>
+          <button type="button" class="kc-btn dur" data-days="30">1M</button>
+          <button type="button" class="kc-btn dur on" data-days="90">3M</button>
+          <button type="button" class="kc-btn dur" data-days="180">6M</button>
+          <button type="button" class="kc-btn dur" data-days="365">1Y</button>
+          <button type="button" class="kc-btn dur" data-days="9999">All</button>
+        </div>
+        <div class="kc-group" id="kc-type-group">
+          <button type="button" class="kc-btn on" data-kctype="candle_solid" title="Candles">Candles</button>
+          <button type="button" class="kc-btn" data-kctype="line" title="Line">Line</button>
+          <button type="button" class="kc-btn" data-kctype="area" title="Area">Area</button>
+          <button type="button" class="kc-btn" data-kctype="ohlc" title="OHLC">OHLC</button>
+        </div>
+        <div class="kc-group" id="kc-draw-group">
+          <button type="button" class="kc-btn" data-overlay="segment" title="Trend line">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="3" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="13" cy="3" r="1.3" fill="currentColor" stroke="none"/><path d="M3 12l10-9"/></svg>
+          </button>
+          <button type="button" class="kc-btn" data-overlay="horizontalStraightLine" title="Horizontal line">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8h14"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/></svg>
+          </button>
+          <button type="button" class="kc-btn" data-overlay="rayLine" title="Ray">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="2" cy="12" r="1.3" fill="currentColor" stroke="none"/><path d="M2 12L14 4"/></svg>
+          </button>
+          <button type="button" class="kc-btn" data-overlay="priceChannelLine" title="Price channel">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10l14-7M1 14l14-7"/></svg>
+          </button>
+          <button type="button" class="kc-btn" data-overlay="parallelStraightLine" title="Parallel channel">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l5 10M9 3l5 10"/></svg>
+          </button>
+          <button type="button" class="kc-btn" data-overlay="fibonacciLine" title="Fibonacci retracement">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h14M1 6h10M1 9h14M1 12h6M1 15h14"/></svg>
+          </button>
+          <button type="button" class="kc-btn" data-overlay="brush" title="Brush">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8-4 1 1-4z"/></svg>
+          </button>
+          <button type="button" class="kc-btn" data-overlay="simpleAnnotation" title="Text note">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h10M8 3v10"/></svg>
+          </button>
+          <button type="button" class="kc-btn" id="kc-erase" title="Erase all drawings">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2l4 4-7 7H4l-2-2z"/><path d="M7 13h6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="kc-readout"><span id="kc-readout-window"></span><span id="kc-readout-hilo"></span></div>
+      <div id="kc-wrap">
+        <div id="kc-chart"></div>
+        <div class="loading-overlay on" id="kc-loading"><div class="loading sm"><div class="loading-dots"><span></span><span></span><span></span><span></span><span></span></div><div class="loading-label">Loading</div></div></div>
+      </div>
+      <div id="ch-returns"></div>
+    </div>
+
+    <div id="chart-wrap"><div id="chart"></div><div id="chart-tip"></div></div>
+    <p class="mut" id="ch-note"></p>
+  </section>
+</main>
+<div id="overlay"></div>
+<div id="modal"></div>
+<div id="settings-modal">
+  <div class="settings-sidebar">
+    <div class="settings-logo">
+      <img src="icon.png" alt="">
+      <div><div class="kicker2">SETTINGS</div><div class="word2">MSX Lookout</div></div>
+    </div>
+    <button class="settings-nav on" data-pane="appearance">Appearance</button>
+    <button class="settings-nav" data-pane="general">General</button>
+    <button class="settings-nav" data-pane="exports">Excel files</button>
+    <button class="settings-nav" data-pane="updater">Updater</button>
+  </div>
+  <div class="settings-content">
+    <button class="settings-close" id="settings-close" aria-label="Close settings">&times;</button>
+    <div class="settings-pane on" id="pane-appearance">
+      <h3>Appearance</h3>
+      <div class="settings-group-label">Theme</div>
+      <div class="settings-row" data-theme-opt="system"><span>System</span><span class="check">&#10003;</span></div>
+      <div class="settings-row" data-theme-opt="light"><span>Light</span><span class="check">&#10003;</span></div>
+      <div class="settings-row" data-theme-opt="dark"><span>Dark</span><span class="check">&#10003;</span></div>
+    </div>
+    <div class="settings-pane" id="pane-general">
+      <h3>General</h3>
+      <div class="field"><label>Display name</label><input id="set-name" placeholder="Your name"></div>
+      <div class="field" style="margin-top:18px"><label>Digest &amp; alert email</label><input id="set-email" type="email" placeholder="you@example.com"></div>
+      <div class="settings-group" style="margin-top:26px;margin-bottom:0">
+        <div class="settings-group-label" style="margin-bottom:2px">Notifications</div>
+        <div class="ntf-row" id="ntf-master-row">
+          <div class="ntf-txt"><div class="ntf-name">All email notifications</div><div class="ntf-why">Master switch. Turn this off and nothing below ever emails you.</div></div>
+          <button type="button" class="cmp-switch ntf-switch" id="ntf-master" role="switch" aria-checked="true"><span class="knob"></span><span class="opt opt-all">OFF</span><span class="opt opt-mine">ON</span></button>
+        </div>
+        <div class="ntf-row" id="ntf-listings-row">
+          <div class="ntf-txt"><div class="ntf-name">New listings &amp; delistings</div><div class="ntf-why">A heads-up email when a company joins or leaves MSX.</div></div>
+          <button type="button" class="cmp-switch ntf-switch" id="ntf-listings" role="switch" aria-checked="false"><span class="knob"></span><span class="opt opt-all">OFF</span><span class="opt opt-mine">ON</span></button>
+        </div>
+        <div class="ntf-row" id="ntf-failures-row">
+          <div class="ntf-txt"><div class="ntf-name">Update-failure alerts</div><div class="ntf-why">If a scheduled price or company update keeps failing, so staleness is never silent.</div></div>
+          <button type="button" class="cmp-switch ntf-switch" id="ntf-failures" role="switch" aria-checked="true"><span class="knob"></span><span class="opt opt-all">OFF</span><span class="opt opt-mine">ON</span></button>
+        </div>
+        <div class="settings-group-label" style="margin:22px 0 12px">How often the digest email arrives</div>
+        <div class="freq-toggle" id="freq-digest">
+          <button type="button" class="tpick-opt" data-freq="daily">Daily</button>
+          <button type="button" class="tpick-opt" data-freq="weekly">Weekly</button>
+          <button type="button" class="tpick-opt" data-freq="monthly">Monthly</button>
+          <button type="button" class="tpick-opt" data-freq="never">Never</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:34px">
+        <button class="btn-pill" id="set-general-save">SAVE SCHEDULE</button>
+      </div>
+    </div>
+    <div class="settings-pane" id="pane-exports">
+      <h3>Excel files</h3>
+      <div id="exports-list"><p class="mut">Loading...</p></div>
+    </div>
+    <div class="settings-pane" id="pane-updater">
+      <h3>Updater</h3>
+      <div class="settings-group">
+        <div class="settings-group-label">Price updates</div>
+        <div class="freq-toggle" id="freq-price">
+          <button type="button" class="tpick-opt" data-freq="daily">Daily</button>
+          <button type="button" class="tpick-opt" data-freq="weekly">Weekly</button>
+          <button type="button" class="tpick-opt" data-freq="monthly">Monthly</button>
+        </div>
+        <p class="mut" id="last-price-ingest"></p>
+      </div>
+      <div class="settings-group">
+        <div class="settings-group-label">Company &amp; sector refresh</div>
+        <div class="freq-toggle" id="freq-company">
+          <button type="button" class="tpick-opt" data-freq="daily">Daily</button>
+          <button type="button" class="tpick-opt" data-freq="weekly">Weekly</button>
+          <button type="button" class="tpick-opt" data-freq="monthly">Monthly</button>
+        </div>
+        <p class="mut" id="last-company-refresh"></p>
+      </div>
+      <div class="settings-group">
+        <div class="settings-group-label">Dividends</div>
+        <div class="freq-toggle" id="freq-dividends">
+          <button type="button" class="tpick-opt" data-freq="daily">Daily</button>
+          <button type="button" class="tpick-opt" data-freq="weekly">Weekly</button>
+          <button type="button" class="tpick-opt" data-freq="monthly">Monthly</button>
+          <button type="button" class="tpick-opt" data-freq="never">Never</button>
+        </div>
+        <p class="mut" id="last-dividends-update"></p>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:34px">
+        <button class="btn-pill" id="set-updater-save">SAVE SCHEDULE</button>
+      </div>
+      <hr>
+      <div class="settings-group" id="app-update-group" style="display:none">
+        <div class="settings-group-label">Desktop app</div>
+        <p class="mut" id="app-version-text">Version —</p>
+        <button class="btn-pill" id="check-app-update">CHECK FOR UPDATES</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="upd-row">
+  <button id="upd-btn">UPDATE PRICES &amp; COMPANIES</button>
+  <div id="upd-sub"></div>
+  <div id="upd-bar-track"><div id="upd-bar"></div></div>
+</div>
+<script>
+// the Supabase API base
+var API = 'https://vmgtlszxilzrwcalmtrc.supabase.co/functions/v1/app';
+var $ = function (id) { return document.getElementById(id); };
+var state = null, chPicker = null, myTickerSet = {}, myPositions = [];
+
+// ---------- theme ----------
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function applyTheme(mode) {
+  if (mode === 'light' || mode === 'dark') document.documentElement.setAttribute('data-theme', mode);
+  else document.documentElement.removeAttribute('data-theme');
+  Array.prototype.forEach.call($('pane-appearance').querySelectorAll('[data-theme-opt]'), function (el) {
+    el.classList.toggle('on', el.getAttribute('data-theme-opt') === mode);
+  });
+  $('theme-color-meta').setAttribute('content', cssVar('--page'));
+  if ($('tab-charts').classList.contains('on') && chartsInit) drawChart();
+}
+(function () {
+  var saved = localStorage.getItem('msx-theme') || 'system';
+  applyTheme(saved);
+  Array.prototype.forEach.call($('pane-appearance').querySelectorAll('[data-theme-opt]'), function (el) {
+    el.onclick = function () {
+      var mode = el.getAttribute('data-theme-opt');
+      localStorage.setItem('msx-theme', mode);
+      applyTheme(mode);
+    };
+  });
+  // keep theme-color/charts in sync if the OS switches light/dark (e.g. Windows' scheduled theme) while in "system" mode
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function () {
+    if ((localStorage.getItem('msx-theme') || 'system') === 'system') applyTheme('system');
+  });
+})();
+
+// ---------- settings modal ----------
+var appSettings = null;
+function openSettings(pane) {
+  $('overlay').style.display = 'block'; $('settings-modal').classList.add('open');
+  document.body.classList.add('modal-open');
+  showSettingsPane(pane || 'appearance');
+  if (pane === 'exports') loadExports();
+}
+function closeSettings() { $('overlay').style.display = 'none'; $('settings-modal').classList.remove('open'); document.body.classList.remove('modal-open'); }
+function showSettingsPane(pane) {
+  Array.prototype.forEach.call($('settings-modal').querySelectorAll('.settings-nav'), function (b) { b.classList.toggle('on', b.getAttribute('data-pane') === pane); });
+  Array.prototype.forEach.call($('settings-modal').querySelectorAll('.settings-pane'), function (p) { p.classList.toggle('on', p.id === 'pane-' + pane); });
+  if (pane === 'exports' && !$('exports-list').getAttribute('data-loaded')) loadExports();
+}
+$('menu-btn').onclick = function () { openSettings('appearance'); };
+$('settings-close').onclick = closeSettings;
+$('overlay').onclick = function () { closeSettings(); closeModal(); };
+Array.prototype.forEach.call(document.querySelectorAll('.settings-nav'), function (b) {
+  b.onclick = function () { showSettingsPane(b.getAttribute('data-pane')); };
+});
+
+function lastRunText(iso) { return iso ? 'Last updated ' + new Date(iso).toLocaleString() : 'Never run yet'; }
+function loadAppSettings() {
+  return api('get_settings').then(function (s) {
+    appSettings = s || {};
+    $('set-name').value = appSettings.display_name || '';
+    $('set-email').value = appSettings.digest_email || '';
+    setFreqUI('freq-price', appSettings.price_update_freq || 'daily');
+    setFreqUI('freq-company', appSettings.company_refresh_freq || 'monthly');
+    setFreqUI('freq-digest', appSettings.digest_freq || 'daily');
+    setFreqUI('freq-dividends', appSettings.dividends_update_freq || 'weekly');
+    setNtf('ntf-master', appSettings.email_master_enabled !== false);
+    setNtf('ntf-listings', appSettings.notify_listings === true);
+    setNtf('ntf-failures', appSettings.notify_failures !== false);
+    reflectMaster();
+    $('last-price-ingest').textContent = lastRunText(appSettings.last_price_ingest_at);
+    $('last-company-refresh').textContent = lastRunText(appSettings.last_company_refresh_at);
+    $('last-dividends-update').textContent = lastRunText(appSettings.last_dividends_update_at);
+    updateHeaderStatus();
+    if ($('ms-kicker')) $('ms-kicker').textContent = 'MY STOCKS' + (appSettings.display_name ? ' · ' + appSettings.display_name.toUpperCase() : '');
+    return appSettings;
+  }).catch(function () { appSettings = appSettings || {}; });
+}
+// no-op: the display name now shows in the My Stocks kicker (loadHome), not a separate greeting line
+function setFreqUI(groupId, val) {
+  Array.prototype.forEach.call($(groupId).children, function (b) { b.classList.toggle('on', b.getAttribute('data-freq') === val); });
+}
+Array.prototype.forEach.call(document.querySelectorAll('.freq-toggle, .freq-toggle-wrap'), function (group) {
+  Array.prototype.forEach.call(group.children, function (b) {
+    b.onclick = function () { setFreqUI(group.id, b.getAttribute('data-freq')); };
+  });
+});
+// notification on/off switches (reuse the .cmp-switch visual); master dims the rest when off
+function setNtf(id, on) { $(id).setAttribute('aria-checked', String(!!on)); }
+function ntfOn(id) { return $(id).getAttribute('aria-checked') === 'true'; }
+function reflectMaster() {
+  var master = ntfOn('ntf-master');
+  ['ntf-listings-row', 'ntf-failures-row'].forEach(function (r) { $(r).classList.toggle('off', !master); });
+}
+['ntf-master', 'ntf-listings', 'ntf-failures'].forEach(function (id) {
+  $(id).onclick = function () { setNtf(id, !ntfOn(id)); if (id === 'ntf-master') reflectMaster(); };
+});
+
+// Settings save buttons: reflect the change in-memory immediately, capture it in the offline
+// queue, then flash a gray "SAVED" for 1.5s (locked, non-interruptible) and revert. Deliberately
+// NOT the green persistent .done — with the write queue there's no "save failed" to report here:
+// an offline save is captured locally and the connection light says whether it's live on the
+// server yet. Button = "we got it," light = "and here's whether it synced." See CLAUDE.md.
+function wireSaveSchedule(btn, buildPayload, onSuccess) {
+  var idleLabel = btn.textContent;
+  btn.onclick = function () {
+    if (btn.disabled) return;
+    if (onSuccess) onSuccess();                 // in-memory state updates now, online or offline
+    apiWrite('save_settings', buildPayload());  // captured locally, syncs when it can
+    btn.disabled = true; btn.classList.remove('done'); btn.classList.add('saved'); btn.textContent = 'SAVED';
+    setTimeout(function () {
+      btn.disabled = false; btn.classList.remove('saved'); btn.textContent = idleLabel;
+    }, 1500);
+  };
+}
+wireSaveSchedule($('set-general-save'), function () {
+  var digestFreq = $('freq-digest').querySelector('.on');
+  return {
+    display_name: $('set-name').value.trim(), digest_email: $('set-email').value.trim(),
+    digest_freq: digestFreq ? digestFreq.getAttribute('data-freq') : 'daily',
+    email_master_enabled: ntfOn('ntf-master'),
+    notify_listings: ntfOn('ntf-listings'),
+    notify_failures: ntfOn('ntf-failures'),
+  };
+}, function () {
+  appSettings.display_name = $('set-name').value.trim();
+  appSettings.digest_email = $('set-email').value.trim();
+  appSettings.email_master_enabled = ntfOn('ntf-master');
+  appSettings.notify_listings = ntfOn('ntf-listings');
+  appSettings.notify_failures = ntfOn('ntf-failures');
+  $('ms-kicker').textContent = 'MY STOCKS' + (appSettings.display_name ? ' · ' + appSettings.display_name.toUpperCase() : '');
+});
+wireSaveSchedule($('set-updater-save'), function () {
+  var price = $('freq-price').querySelector('.on'), company = $('freq-company').querySelector('.on');
+  var dividends = $('freq-dividends').querySelector('.on');
+  return {
+    price_update_freq: price ? price.getAttribute('data-freq') : 'daily',
+    company_refresh_freq: company ? company.getAttribute('data-freq') : 'monthly',
+    dividends_update_freq: dividends ? dividends.getAttribute('data-freq') : 'weekly',
+  };
+});
+
+function loadExports() {
+  $('exports-list').setAttribute('data-loaded', '1');
+  $('exports-list').innerHTML = loadingHTML(true);
+  api('list_exports').then(function (folders) {
+    if (!folders.length) { $('exports-list').innerHTML = '<p class="mut">No downloads yet — files you export as Excel will show up here.</p>'; return; }
+    var html = folders.map(function (f) {
+      return '<div class="exports-folder">' + f.folder + '</div>' + f.files.map(function (file) {
+        var kb = file.size ? Math.round(file.size / 1024) + ' KB' : '';
+        return '<div class="exports-file"><span>' + file.name + '<div class="sz">XLSX' + (kb ? ' · ' + kb : '') + '</div></span>' +
+          '<button type="button" class="btn-inline dl" data-path="' + file.path + '">DOWNLOAD</button></div>';
+      }).join('');
+    }).join('');
+    $('exports-list').innerHTML = html;
+    Array.prototype.forEach.call($('exports-list').querySelectorAll('.dl'), function (btn) {
+      btn.onclick = function () {
+        if (btn.disabled) return;
+        btn.disabled = true; btn.textContent = 'PREPARING…';
+        api('export_url', { path: btn.getAttribute('data-path') }).then(function (r) {
+          window.open(r.url, '_blank');
+          btn.disabled = false; btn.textContent = 'DOWNLOAD';
+        }).catch(function () { btn.disabled = false; btn.textContent = 'DOWNLOAD'; });
+      };
+    });
+  }).catch(function () { $('exports-list').innerHTML = '<p class="mut">Could not load — check your connection.</p>'; });
+}
+
+// ---------- header status lights (PRICES / COMPANIES / DIVIDENDS) ----------
+// idle = green, last-finished timestamp; run = pulsing red, that job is in flight;
+// warn = clay, the run finished but this feed couldn't refresh (kept the last known value);
+// fail = solid red, the whole run stopped without finishing. See header-status-tags.md.
+function fmtStatusDate(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso), months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  var hh = ('0' + d.getHours()).slice(-2), mm = ('0' + d.getMinutes()).slice(-2);
+  return d.getDate() + ' ' + months[d.getMonth()] + ' ' + hh + ':' + mm;
+}
+// date only (no time) — used for the "(last <date>)" a failed light shows
+function fmtStatusDateShort(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso), months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  return d.getDate() + ' ' + months[d.getMonth()];
+}
+var STATUS_WORD = { prices: 'PRICES', companies: 'COMPANIES', dividends: 'DIVIDENDS' };
+var STATUS_LAST = { prices: 'last_price_ingest_at', companies: 'last_company_refresh_at', dividends: 'last_dividends_update_at' };
+function setHeaderStatus(which, mode, iso) {
+  var dot = $('status-dot-' + which), lbl = $('status-lbl-' + which);
+  if (!dot || !lbl) return;
+  dot.className = 'status-dot' + (mode === 'run' ? ' run' : mode === 'fail' ? ' fail' : mode === 'warn' ? ' warn' : '');
+  var word = STATUS_WORD[which] || which.toUpperCase();
+  lbl.title = '';
+  if (mode === 'run') { lbl.textContent = word + ' UPDATING…'; return; }
+  if (mode === 'fail') {
+    // whole run stopped — surface the last-good date (date only) so a stale light still says how stale
+    var lastIso = iso && iso !== 'now' ? iso : (appSettings && appSettings[STATUS_LAST[which]]);
+    lbl.textContent = word + ' (last ' + fmtStatusDateShort(lastIso) + ')';
+    return;
+  }
+  if (mode === 'warn') {
+    // run finished but this one feed couldn't refresh — we kept the last saved value, dated
+    var keptIso = iso && iso !== 'now' ? iso : (appSettings && appSettings[STATUS_LAST[which]]);
+    lbl.textContent = word + ' (kept ' + fmtStatusDateShort(keptIso) + ')';
+    lbl.title = 'Could not refresh just now. Showing the last saved value, from ' + fmtStatusDateShort(keptIso) + '.';
+    return;
+  }
+  lbl.textContent = word + ' ' + (iso === 'now' ? 'JUST NOW' : fmtStatusDate(iso));
+}
+function updateHeaderStatus() {
+  setHeaderStatus('prices', 'idle', appSettings && appSettings.last_price_ingest_at);
+  setHeaderStatus('companies', 'idle', appSettings && appSettings.last_company_refresh_at);
+  // divWarn sticks across the post-run settings reload so a couldn't-refresh stays clay, not green
+  setHeaderStatus('dividends', divWarn ? 'warn' : 'idle', appSettings && appSettings.last_dividends_update_at);
+  if (typeof updPhase !== 'undefined' && updPhase === 'idle') setUpdRow('idle');
+}
+// true after a run where the dividends feed couldn't refresh (source unreachable or a payer went empty)
+var divWarn = false;
+function dividendsRunFailed(dv) {
+  if (!dv) return false;                                 // absent → didn't run this pass
+  if (typeof dv === 'string') return dv.indexOf('error') === 0; // "not due" is fine; "error: …" is not
+  return (dv.failed || 0) > 0 || (dv.suspect || 0) > 0;  // any ticker errored or a payer went suspiciously empty
+}
+
+// ---------- updater row: idle -> prices -> companies -> done|failed ----------
+// One control runs both jobs together (see design_handoff_price_first/header-status-tags.md:
+// "the run covers prices and companies together"). ingest.ts/refresh.ts now write real
+// {done,total} progress to app_settings as MSX's market batches actually resolve (see
+// setIngestProgress/setRefreshProgress) — polled below while a phase is active, so the
+// bar fills on genuine counts, not a fabricated tick. Falls back to an indeterminate
+// shimmer only for the brief gap before the first poll tick lands.
+var updPhase = 'idle';
+var updPollTimer = null;
+function updIdleSub() {
+  var n = browseRows ? browseRows.length : null;
+  var stamp = appSettings && appSettings.last_price_ingest_at ? fmtStatusDate(appSettings.last_price_ingest_at) : null;
+  return stamp ? 'LAST RUN ' + stamp + (n ? ' · ' + n + ' STOCKS' : '') : 'NEVER RUN YET';
+}
+function setUpdRow(phase, sub, progress) {
+  updPhase = phase;
+  var btn = $('upd-btn'), bar = $('upd-bar');
+  btn.className = phase === 'done' ? 'done' : phase === 'failed' ? 'failed' : '';
+  btn.disabled = phase === 'prices' || phase === 'companies';
+  var hasProgress = progress && progress.total > 0;
+  bar.classList.toggle('shimmer', (phase === 'prices' || phase === 'companies') && !hasProgress);
+  if (phase === 'idle') { btn.textContent = 'UPDATE PRICES & COMPANIES'; bar.style.width = '0'; }
+  else if (phase === 'prices') {
+    btn.textContent = 'UPDATING PRICES' + (hasProgress ? ' ' + progress.done + '/' + progress.total : '') + '…';
+    bar.style.width = (hasProgress ? Math.min(progress.done / progress.total, 1) * 75 : 75) + '%';
+  } else if (phase === 'companies') {
+    btn.textContent = 'UPDATING COMPANIES' + (hasProgress ? ' ' + progress.done + '/' + progress.total : '') + '…';
+    bar.style.width = (hasProgress ? 75 + Math.min(progress.done / progress.total, 1) * 25 : 100) + '%';
+  } else if (phase === 'done') { btn.textContent = 'UP TO DATE'; bar.style.width = '100%'; }
+  else if (phase === 'failed') { btn.textContent = 'RETRY UPDATE'; }
+  // sub is left untouched (undefined) on progress-only poll ticks so it doesn't blank the phase line
+  if (sub !== undefined) $('upd-sub').textContent = sub != null ? sub : (phase === 'idle' ? updIdleSub() : '');
+}
+function updPollProgress() {
+  api('get_settings').then(function (s) {
+    if (!s) return;
+    if (updPhase === 'prices' && s.price_ingest_progress) setUpdRow('prices', undefined, s.price_ingest_progress);
+    else if (updPhase === 'companies' && s.company_refresh_progress) setUpdRow('companies', undefined, s.company_refresh_progress);
+  });
+}
+function startUpdPolling() { stopUpdPolling(); updPollTimer = setInterval(updPollProgress, 1200); }
+function stopUpdPolling() { if (updPollTimer) { clearInterval(updPollTimer); updPollTimer = null; } }
+function runFullUpdate() {
+  if (updPhase === 'prices' || updPhase === 'companies') return;
+  // the bottom updater row + header status lights already narrate prices-then-companies
+  // phase by phase — the floating sync banner said the same thing again on top of it.
+  // dividends are bundled inside run_ingest_now (best-effort) — its light rides the prices phase.
+  divWarn = false;
+  var ingestResult = null, refreshResult = null;
+  setHeaderStatus('prices', 'run'); setHeaderStatus('companies', 'run'); setHeaderStatus('dividends', 'run');
+  setUpdRow('prices', 'Fetching the latest prices from MSX. You can keep browsing.');
+  startUpdPolling();
+  api('run_ingest_now').then(function (r) {
+    ingestResult = r || {};
+    divWarn = dividendsRunFailed(ingestResult.dividends);
+    setHeaderStatus('prices', 'idle', 'now');
+    setHeaderStatus('dividends', divWarn ? 'warn' : 'idle', 'now');
+    setUpdRow('companies', 'Prices done. Refreshing the company list…');
+    return api('run_refresh_now');
+  }).then(function (r) {
+    refreshResult = r || {};
+    setHeaderStatus('companies', 'idle', 'now');
+    return loadAppSettings(); // reconciles the lights to real timestamps; honors divWarn for dividends
+  }).then(function () {
+    stopUpdPolling();
+    setUpdRow('done', updateResultLine(ingestResult, refreshResult));
+    setTimeout(function () { setUpdRow('idle'); }, 6000);
+  }).catch(function () {
+    stopUpdPolling();
+    divWarn = false;
+    setHeaderStatus('prices', 'fail'); setHeaderStatus('companies', 'fail'); setHeaderStatus('dividends', 'fail');
+    setUpdRow('failed', 'MSX did not respond. Nothing changed.');
+  });
+}
+// plain-language recap of what the run actually did — prices, companies, dividends — instead of a bare "finished".
+function updateResultLine(ing, ref) {
+  var parts = [];
+  var t = ing && ing.today, priceStamp = appSettings && appSettings.last_price_ingest_at;
+  if (typeof t === 'string' && /rows$/.test(t)) parts.push('prices to ' + (priceStamp ? fmtStatusDateShort(priceStamp) : 'today'));
+  else if (typeof t === 'string' && t.indexOf('weekend') === 0) parts.push('no trading today');
+  else parts.push('prices checked');
+  if (ref && typeof ref.live === 'number') {
+    var extra = [];
+    if (ref.added && ref.added.length) extra.push('+' + ref.added.length + ' new');
+    if (ref.delisted && ref.delisted.length) extra.push('−' + ref.delisted.length);
+    parts.push(ref.live + ' companies' + (extra.length ? ' (' + extra.join(', ') + ')' : ''));
+  } else parts.push('companies refreshed');
+  var dv = ing && ing.dividends;
+  if (divWarn) parts.push("dividends: couldn't refresh, kept last known");
+  else if (dv && typeof dv === 'object') {
+    var got = (dv.ok != null ? dv.ok : dv.updated) || 0;
+    parts.push(got > 0 ? 'dividends refreshed' : 'dividends: nothing new');
+  } else if (dv === 'not due') parts.push('dividends already current');
+  return 'Done. ' + parts.join(' · ') + '.';
+}
+$('upd-btn').onclick = runFullUpdate;
+setUpdRow('idle');
+
+function setOnline(ok, ts) {
+  connOnline = ok;
+  var b = $('offline');
+  if (ok) { b.style.display = 'none'; }
+  else {
+    b.textContent = 'Offline — showing saved data' + (ts ? ' from ' + new Date(ts).toLocaleString() : '');
+    b.style.display = 'block';
+  }
+  renderConn();
+  if (ok && wqPending()) flushQueue(); // a read got through — drain any writes waiting on the network
+}
+
+// ---------- offline-first write queue ----------
+// Every mutation goes through apiWrite(): capture the intended payload in localStorage FIRST,
+// then try the server. A failed call leaves the entry queued and it replays, in order, on the
+// next successful contact (reconnect / focus / any read that gets through). A save is a deferred
+// success, never a silent loss — even if the window closes mid-save. Entries hold only the
+// action + its payload (the same whitelisted fields the server already accepts on that action),
+// so a replay can't clobber server-managed columns. Single-user, so last-write-wins is fine.
+var WQ_KEY = 'msx-writeq';
+var connOnline = true;   // last known server reachability (set by reads and by the flush)
+var wqFlushing = false;  // true while the queue is draining -> the light reads SYNCING
+function wqLoad() { try { return JSON.parse(localStorage.getItem(WQ_KEY)) || []; } catch (e) { return []; } }
+function wqSave(q) { localStorage.setItem(WQ_KEY, JSON.stringify(q)); }
+function wqPending() { return wqLoad().length; }
+
+// enqueue + attempt to flush. Returns the flush promise: online it resolves once the write is
+// confirmed (so a caller's reload sees fresh data); offline it resolves as soon as the attempt
+// fails (deferred success) so the UI can still give positive feedback. Never rejects.
+function apiWrite(action, params) {
+  var q = wqLoad();
+  q.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2), action: action, params: params || {} });
+  wqSave(q);
+  renderConn();
+  return flushQueue();
+}
+
+// drain the queue one entry at a time, in order; stop on the first failure so ordering holds and
+// nothing is dropped. Always resolves (success or not) — the connection light carries the truth.
+function flushQueue() {
+  if (wqFlushing) return Promise.resolve();
+  if (!wqPending()) { renderConn(); return Promise.resolve(); }
+  wqFlushing = true; renderConn();
+  function step() {
+    var q = wqLoad();
+    if (!q.length) return Promise.resolve();
+    var e = q[0];
+    return fetch(API + '/data', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ action: e.action }, e.params))
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var q2 = wqLoad(); q2.shift(); wqSave(q2); // confirmed by the server -> drop it
+      connOnline = true;
+      return step();
+    });
+  }
+  return step().then(function () {
+    wqFlushing = false; connOnline = true; renderConn();
+  }, function () {
+    wqFlushing = false; connOnline = false; renderConn();
+  });
+}
+
+// ---------- connection indicator (always visible; also the sync-feedback slot) ----------
+// Three states in the same dot language as the data lights: green ONLINE, red OFFLINE
+// (· N PENDING when writes are queued), pulsing SYNCING while the queue drains.
+function renderConn() {
+  var dot = $('conn-dot'), lbl = $('conn-lbl');
+  if (!dot || !lbl) return;
+  var pending = wqPending();
+  if (wqFlushing) {
+    dot.className = 'status-dot run'; lbl.textContent = 'SYNCING';
+    lbl.title = 'Sending your saved changes to the server…';
+  } else if (!connOnline) {
+    dot.className = 'status-dot fail';
+    lbl.textContent = pending ? 'OFFLINE · ' + pending + ' PENDING' : 'OFFLINE';
+    lbl.title = pending
+      ? pending + ' change' + (pending === 1 ? '' : 's') + ' saved on this device, waiting to sync when you reconnect.'
+      : 'No connection. Showing the last saved data.';
+  } else {
+    dot.className = 'status-dot'; lbl.textContent = 'ONLINE'; lbl.title = '';
+  }
+}
+
+// ---------- silent background sync (online / window-focus refresh) ----------
+// Refreshes whatever's already on Supabase for the active tab — it does NOT force a
+// fresh MSX scrape (that's what the bottom updater row's button is for).
+// the transient "updating" pill was removed; these stay as harmless promise-settle handlers
+function showSync() {}
+function hideSync() {}
+function refreshActiveTab() {
+  flushQueue(); // reconnected — replay any writes captured while offline
+  var t = ['home', 'browse', 'compare', 'charts'].filter(function (o) { return $('tb-' + o).classList.contains('on'); })[0];
+  showSync();
+  if (t === 'home') loadHome().then(hideSync, hideSync);
+  else if (t === 'browse') loadBrowse().then(hideSync, hideSync);
+  else if (t === 'compare') loadWeeks().then(hideSync, hideSync);
+  else if (t === 'charts') {
+    if (chartsInit) { drawChart(); setTimeout(hideSync, 1200); } else initCharts().then(hideSync, hideSync);
+  } else hideSync();
+}
+var lastSyncCheck = Date.now();
+window.addEventListener('online', refreshActiveTab);
+// 'online' isn't reliable on every platform — also re-sync when the window regains
+// focus after being away a while (covers "closed the laptop lid, reopened later").
+window.addEventListener('focus', function () {
+  if (Date.now() - lastSyncCheck > 60000) refreshActiveTab();
+  lastSyncCheck = Date.now();
+  if (TAURI && Date.now() - lastUpdateCheck > 4 * 3600 * 1000) checkForAppUpdate(false);
+});
+
+// ---------- desktop app self-update (Tauri only — a no-op entirely in a plain browser tab) ----------
+// Checks GitHub Releases (via the updater plugin's Rust side, not a webview fetch — CSP-exempt),
+// downloads silently in the background if one's found, then waits for the user to restart rather
+// than force-closing a session they might be mid-use of.
+var TAURI = window.__TAURI__;
+var tauriReady = false;
+function wireTbar() {
+  TAURI = window.__TAURI__;
+  if (tauriReady) return true;
+  // Internals can land before the public __TAURI__ object; either means we're in the desktop app.
+  if (!TAURI && !window.__TAURI_INTERNALS__) return false;
+  document.documentElement.classList.add('tauri');
+  $('tbar').classList.add('on');
+  if (!TAURI) return false;
+  var winMod = TAURI.window || TAURI.webviewWindow;
+  var getter = winMod && (winMod.getCurrentWindow || winMod.getCurrentWebviewWindow || winMod.getCurrent);
+  var invoke = TAURI.core && TAURI.core.invoke;
+  if (!getter && !invoke) return false;
+  tauriReady = true;
+  function bind(el, method, cmd) {
+    el.onclick = function () {
+      try {
+        if (getter) {
+          var w = getter.call(winMod);
+          if (w && w[method]) { w[method](); return; }
+        }
+      } catch (e) {}
+      if (invoke) invoke(cmd);
+    };
+  }
+  bind($('tbar-min'), 'minimize', 'plugin:window|minimize');
+  bind($('tbar-max'), 'toggleMaximize', 'plugin:window|toggle_maximize');
+  bind($('tbar-close'), 'close', 'plugin:window|close');
+  if (TAURI.updater && TAURI.app) {
+    $('app-update-group').style.display = '';
+    TAURI.app.getVersion().then(function (v) {
+      appUpdateStatus('Version ' + v);
+      checkForAppUpdate(false);
+    });
+  }
+  return true;
+}
+// show scrollbars only while actively scrolling — remove the .scrolling flag once scrolling stops
+var scrollHideTimer;
+addEventListener('scroll', function () {
+  document.documentElement.classList.add('scrolling');
+  clearTimeout(scrollHideTimer);
+  scrollHideTimer = setTimeout(function () { document.documentElement.classList.remove('scrolling'); }, 700);
+}, true);
+var pendingUpdate = null;
+var lastUpdateCheck = 0;
+function appUpdateStatus(text) { $('app-version-text').textContent = text; }
+function checkForAppUpdate(manual) {
+  if (pendingUpdate) { TAURI.process.relaunch(); return; } // already downloaded — a second click just installs it
+  lastUpdateCheck = Date.now();
+  if (manual) { $('check-app-update').disabled = true; appUpdateStatus('Checking for updates...'); }
+  TAURI.updater.check().then(function (update) {
+    if (manual) $('check-app-update').disabled = false;
+    if (!update) {
+      if (manual) appUpdateStatus('Up to date.');
+      return;
+    }
+    appUpdateStatus('Downloading update ' + update.version + '...');
+    return update.downloadAndInstall().then(function () {
+      pendingUpdate = update;
+      appUpdateStatus('Update ' + update.version + ' ready — restart to use it.');
+      $('update-banner').classList.add('on');
+    });
+  }).catch(function () {
+    if (manual) { $('check-app-update').disabled = false; appUpdateStatus('Could not check for updates — check your connection.'); }
+  });
+}
+$('check-app-update').onclick = function () { checkForAppUpdate(true); };
+$('update-restart-btn').onclick = function () { if (TAURI && TAURI.process) TAURI.process.relaunch(); };
+// Windows WebView2 can inject __TAURI__ after top-level scripts (see tauri#12990).
+if (!wireTbar()) {
+  var tbarTries = 0;
+  var tbarTimer = setInterval(function () {
+    tbarTries++;
+    if (wireTbar() || tbarTries > 200) clearInterval(tbarTimer);
+  }, 50);
+}
+
+function api(action, params) {
+  var ck = 'c_' + action + JSON.stringify(params || {});
+  return fetch(API + '/data', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ action: action }, params || {}))
+  }).then(function (r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function (d) {
+    localStorage.setItem(ck, JSON.stringify({ t: Date.now(), d: d }));
+    setOnline(true);
+    return d;
+  }).catch(function (e) {
+    var c = localStorage.getItem(ck);
+    if (c) { var o = JSON.parse(c); setOnline(false, o.t); return o.d; }
+    throw e;
+  });
+}
+
+// Excel via fetch+blob so the download works cross-origin
+function dlExcel(qs, filename) {
+  fetch(API + '/excel?' + qs)
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+    .then(function (b) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(b); a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+    }).catch(function (e) { alert('Excel download failed (need internet): ' + e.message); });
+}
+
+function loadingHTML(sm) {
+  return '<div class="loading' + (sm ? ' sm' : '') + '"><div class="loading-dots"><span></span><span></span><span></span><span></span><span></span></div><div class="loading-label">Loading</div></div>';
+}
+function fmt(n, dp) { return n == null ? '—' : Number(n).toFixed(dp == null ? 3 : dp); }
+function cls(n) { return n > 0 ? 'up' : n < 0 ? 'down' : ''; }
+function sign(n, dp) { return (n > 0 ? '+' : '') + fmt(n, dp); }
+function fmtThousands(n, dp) { return n == null ? '—' : Number(n).toLocaleString(undefined, { minimumFractionDigits: dp == null ? 2 : dp, maximumFractionDigits: dp == null ? 2 : dp }); }
+
+// hero count-up: animates from 98.2% of the target to the target itself over `duration`ms, ease-out cubic
+function countUp(el, target, dp, duration, thousands, suffix, signed) {
+  var start = target * 0.982, t0 = null;
+  duration = duration || 1100;
+  function frame(ts) {
+    if (!t0) t0 = ts;
+    var p = Math.min(1, (ts - t0) / duration);
+    var eased = 1 - Math.pow(1 - p, 3);
+    var v = start + (target - start) * eased;
+    el.textContent = (signed ? sign(v, dp) : (thousands ? fmtThousands(v, dp) : fmt(v, dp))) + (suffix || '');
+    if (p < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+function fmtLongDate(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
+}
+
+// shared dark theme for every Plotly chart: transparent surfaces (the #chart/#spark
+// card supplies the background), muted grid, palette-consistent text color
+// reads the live theme's CSS custom properties, so every chart repaints correctly on theme switch
+function chartLayout(extra) {
+  var grid = cssVar('--grid'), ink = cssVar('--text2');
+  return Object.assign({
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { color: ink, family: 'system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif' },
+    xaxis: { gridcolor: grid, zerolinecolor: grid, linecolor: grid },
+    yaxis: { gridcolor: grid, zerolinecolor: grid, linecolor: grid, side: 'right' },
+    margin: { t: 36, r: 46 },
+  }, extra);
+}
+function getCategorical() {
+  return [1, 2, 3, 4, 5, 6, 7, 8].map(function (i) { return cssVar('--cat-' + i); });
+}
+
+// tabs
+var browseRows = null;
+['home', 'browse', 'compare', 'charts'].forEach(function (t) {
+  $('tb-' + t).onclick = function () {
+    window.scrollTo(0, 0);
+    ['home', 'browse', 'compare', 'charts'].forEach(function (o) {
+      $('tb-' + o).classList.toggle('on', o === t);
+      $('tab-' + o).classList.toggle('on', o === t);
+    });
+    if (t === 'browse' && !browseRows) loadBrowse();
+    if (t === 'compare') loadWeeks();
+    if (t === 'charts') initCharts();
+  };
+});
+
+// ---------- browse ----------
+var brSector = null, brScope = 'all', brSortKey = 'name', brSortDir = 1, brListFlip = 0;
+
+function browseFiltered() {
+  if (!browseRows) return [];
+  var q = $('br-filter').value.trim().toLowerCase();
+  return browseRows.filter(function (r) {
+    if (brSector && (r.sector || '') !== brSector) return false;
+    if (brScope === 'watch' && !myTickerSet[r.ticker]) return false;
+    if (!q) return true;
+    return r.ticker.toLowerCase().indexOf(q) > -1 || r.name_en.toLowerCase().indexOf(q) > -1 || (r.sector || '').toLowerCase().indexOf(q) > -1;
+  });
+}
+function sortRows(rows) {
+  var key = brSortKey, dir = brSortDir;
+  return rows.slice().sort(function (a, b) {
+    var av, bv;
+    if (key === 'name') { av = a.name_en || ''; bv = b.name_en || ''; return dir * av.localeCompare(bv); }
+    if (key === 'price') { av = a.close; bv = b.close; }
+    else if (key === 'change') { av = a.change_pct; bv = b.change_pct; }
+    else { av = a.days_since; bv = b.days_since; } // last traded: fewer days = more recent
+    if (av == null) return 1; if (bv == null) return -1;
+    return dir * (av - bv);
+  });
+}
+function renderSortHeader() {
+  Array.prototype.forEach.call($('br-sort-header').querySelectorAll('.sort-col'), function (el) {
+    var key = el.getAttribute('data-sort');
+    el.classList.toggle('active', key === brSortKey);
+    el.classList.toggle('desc', key === brSortKey && brSortDir === -1);
+  });
+}
+function renderBrowse(rows) {
+  renderSortHeader();
+  var count = rows.length, total = browseRows ? browseRows.length : count;
+  $('br-count').textContent = count + ' OF ' + total + ' SHOWN' + (brScope === 'watch' ? ' · WATCHLIST' : '');
+  $('br-footnote').textContent = (brSector ? brSector.toUpperCase() + ' ONLY · ' : '') + 'QUIET = NO TRADE IN 7 DAYS · CLICK A COLUMN TO SORT';
+  if (!rows.length) { $('br-table').innerHTML = '<p class="mut" style="padding:20px">No matches.</p>'; return; }
+  brListFlip = 1 - brListFlip;
+  var anim = brListFlip ? 'riseA' : 'riseB';
+  var h = sortRows(rows).map(function (r, i) {
+    var stale = r.days_since == null || r.days_since > 7;
+    var lastTraded = r.last_date == null ? 'never' : (r.days_since + ' day' + (r.days_since === 1 ? '' : 's') + ' ago');
+    return '<div class="brow" data-t="' + r.ticker + '" style="animation-name:' + anim + ';animation-delay:' + Math.min(i * 26, 320) + 'ms">' +
+      '<span class="watchdot' + (myTickerSet[r.ticker] ? ' on' : '') + '">&#9679;</span>' +
+      '<div class="main"><span class="ticker">' + r.ticker + '</span><div class="sub">' + r.name_en + ' — ' + (r.sector || 'Unclassified') + '</div></div>' +
+      '<div class="price">' + fmt(r.close) + '</div>' +
+      '<div class="change ' + cls(r.change_pct) + '">' + (r.change_pct == null ? '—' : sign(r.change_pct, 2) + '%') + '</div>' +
+      '<div class="last' + (stale ? ' quiet' : '') + '">' + lastTraded + '</div></div>';
+  }).join('');
+  $('br-table').innerHTML = h;
+  Array.prototype.forEach.call($('br-table').querySelectorAll('.brow'), function (row) {
+    row.onclick = function () { openDetail(row.getAttribute('data-t')); };
+  });
+}
+function renderHeatmap() {
+  if (!browseRows) return;
+  var bySector = {};
+  browseRows.forEach(function (r) {
+    if (!r.sector || r.change_pct == null) return;
+    (bySector[r.sector] = bySector[r.sector] || []).push(r.change_pct);
+  });
+  var sectors = Object.keys(bySector).sort();
+  $('br-heatmap').innerHTML = sectors.map(function (s) {
+    var vals = bySector[s], avg = vals.reduce(function (a, b) { return a + b; }, 0) / vals.length;
+    var tint = avg > 0 ? '12,163,12' : avg < 0 ? '208,59,59' : '138,135,120';
+    var on = brSector === s;
+    return '<div class="heat-tile' + (on ? ' on' : '') + '" data-sector="' + s + '" style="background:rgba(' + tint + ',' + (on ? '.14' : '.05') + ')' + (on ? ';border-color:var(--accent)' : '') + '">' +
+      '<div class="name">' + s + '</div><div class="avg ' + cls(avg) + '">' + sign(avg, 2) + '%</div><div class="cnt">' + vals.length + ' LISTED</div></div>';
+  }).join('');
+  Array.prototype.forEach.call($('br-heatmap').querySelectorAll('.heat-tile'), function (el) {
+    el.onclick = function () {
+      var s = el.getAttribute('data-sector');
+      brSector = brSector === s ? null : s;
+      $('br-clear-sector').classList.toggle('on', !!brSector);
+      renderHeatmap();
+      renderBrowse(browseFiltered());
+    };
+  });
+}
+function loadBrowse() {
+  $('br-table').innerHTML = loadingHTML();
+  return api('browse').then(function (rows) {
+    browseRows = rows;
+    var withChange = rows.filter(function (r) { return r.change_pct != null; });
+    var avg = withChange.length ? withChange.reduce(function (a, r) { return a + r.change_pct; }, 0) / withChange.length : 0;
+    var up = withChange.filter(function (r) { return r.change_pct > 0; }).length;
+    var down = withChange.filter(function (r) { return r.change_pct < 0; }).length;
+    countUp($('br-hero'), avg, 2, 1100, false, '%', true);
+    $('br-hero').className = 'hero-value ' + cls(avg);
+    $('br-hero-delta').className = 'hero-delta ' + cls(avg);
+    $('br-hero-delta').textContent = up + ' up · ' + down + ' down';
+    renderHeatmap();
+    renderBrowse(browseFiltered());
+  }).catch(function (e) { $('br-table').innerHTML = '<p class="mut" style="padding:20px">Could not load: ' + e.message + '</p>'; });
+}
+var brCmdIndex = 0;
+function brCmdHighlight() {
+  var rows = $('br-cmd-results').querySelectorAll('.cmd-row');
+  Array.prototype.forEach.call(rows, function (el, i) {
+    el.classList.toggle('active', i === brCmdIndex);
+    var tag = el.querySelector('.tag');
+    if (tag) tag.remove();
+    if (i === brCmdIndex) el.insertAdjacentHTML('beforeend', '<span class="tag">ENTER</span>');
+  });
+  if (rows[brCmdIndex]) rows[brCmdIndex].scrollIntoView({ block: 'nearest' });
+}
+$('br-filter').oninput = function () {
+  $('br-cmd-search').classList.add('on');
+  brCmdIndex = 0;
+  var q = $('br-filter').value.trim().toLowerCase();
+  if (!browseRows || !q) { $('br-cmd-results').style.display = 'none'; renderBrowse(browseFiltered()); return; }
+  var hits = browseRows.filter(function (r) {
+    return r.ticker.toLowerCase().indexOf(q) > -1 || r.name_en.toLowerCase().indexOf(q) > -1 || (r.sector || '').toLowerCase().indexOf(q) > -1;
+  }).slice(0, 4);
+  $('br-cmd-results').style.display = hits.length ? 'block' : 'none';
+  $('br-cmd-results').innerHTML = hits.map(function (r, i) {
+    return '<div class="cmd-row" data-t="' + r.ticker + '" style="animation-delay:' + (i * 40) + 'ms"><span><b>' + r.ticker + '</b> ' + r.name_en + '</span></div>';
+  }).join('');
+  brCmdHighlight();
+  Array.prototype.forEach.call($('br-cmd-results').querySelectorAll('.cmd-row'), function (el, i) {
+    el.onclick = function () { openDetail(el.getAttribute('data-t')); };
+    el.onmouseenter = function () { brCmdIndex = i; brCmdHighlight(); };
+  });
+  renderBrowse(browseFiltered());
+};
+$('br-filter').addEventListener('focus', function () { $('br-cmd-search').classList.add('on'); });
+$('br-filter').addEventListener('blur', function () { if (!$('br-filter').value) $('br-cmd-search').classList.remove('on'); });
+$('br-filter').addEventListener('keydown', function (ev) {
+  var rows = $('br-cmd-results').querySelectorAll('.cmd-row');
+  if (ev.key === 'ArrowDown' && rows.length) {
+    ev.preventDefault();
+    brCmdIndex = (brCmdIndex + 1) % rows.length;
+    brCmdHighlight();
+  } else if (ev.key === 'ArrowUp' && rows.length) {
+    ev.preventDefault();
+    brCmdIndex = (brCmdIndex - 1 + rows.length) % rows.length;
+    brCmdHighlight();
+  } else if (ev.key === 'Enter') {
+    var picked = rows[brCmdIndex] || rows[0];
+    if (picked) openDetail(picked.getAttribute('data-t'));
+  } else if (ev.key === 'Escape') {
+    $('br-filter').value = ''; $('br-cmd-results').style.display = 'none'; $('br-cmd-search').classList.remove('on');
+    renderBrowse(browseFiltered());
+  }
+});
+Array.prototype.forEach.call($('br-scope').querySelectorAll('button'), function (b) {
+  b.onclick = function () {
+    brScope = b.getAttribute('data-scope');
+    Array.prototype.forEach.call($('br-scope').children, function (o) { o.classList.toggle('on', o === b); });
+    renderBrowse(browseFiltered());
+  };
+});
+$('br-clear-sector').onclick = function () {
+  brSector = null; $('br-clear-sector').classList.remove('on'); renderHeatmap(); renderBrowse(browseFiltered());
+};
+Array.prototype.forEach.call($('br-sort-header').querySelectorAll('.sort-col'), function (el) {
+  el.onclick = function () {
+    var key = el.getAttribute('data-sort');
+    if (brSortKey === key) brSortDir = -brSortDir; else { brSortKey = key; brSortDir = 1; }
+    renderBrowse(browseFiltered());
+  };
+});
+document.addEventListener('keydown', function (ev) {
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') {
+    ev.preventDefault();
+    $('tb-browse').click();
+    $('br-filter').focus();
+  }
+});
+
+// ---------- home ----------
+function loadHome() {
+  // "sm" variant: this is the tab shown on app open, and a light watchlist ends up far
+  // shorter than the default 360px reservation — the mismatch was tall-then-short enough
+  // to flash the page scrollbar in and back out once real data replaced the placeholder.
+  $('wl').innerHTML = loadingHTML(true);
+  $('ms-secondary').style.display = 'none'; $('ms-footer').style.display = 'none'; $('ms-latest').style.display = 'none';
+  return api('home').then(function (d) {
+    state = d.state;
+    var last = state.last_msx_date;
+    if (state.days_stale > 4) {
+      $('stale').textContent = 'MSX currently unavailable — last confirmed prices are from ' + last + '.';
+      $('stale').style.display = 'block';
+    } else { $('stale').style.display = 'none'; }
+    var end = last, s = new Date(last + 'T00:00:00'); s.setDate(s.getDate() - 7);
+    var xs = s.toISOString().slice(0, 10);
+    var name = appSettings && appSettings.display_name;
+    $('ms-kicker').textContent = 'MY STOCKS' + (name ? ' · ' + name.toUpperCase() : '');
+    var rows = d.watchlist;
+    myTickerSet = {}; myPositions = rows;
+    rows.forEach(function (r) { myTickerSet[r.ticker] = true; });
+    if (!rows.length) {
+      $('ms-hero').textContent = '0.000'; $('ms-hero-delta').textContent = '';
+      $('ms-subhead').textContent = 'No stocks yet. Open Browse and click a stock to add your first one.';
+      $('wl').innerHTML = '';
+      $('synced').textContent = '';
+      return;
+    }
+    var tv = 0, tg = 0, tCost = 0, tToday = 0, verifiedN = 0, alertN = 0;
+    rows.forEach(function (r) {
+      tv += Number(r.value || 0); tg += Number(r.gain_loss || 0);
+      if (r.quantity != null && r.buy_price != null) tCost += Number(r.quantity) * Number(r.buy_price);
+      if (r.value != null && r.change_pct != null) tToday += Number(r.value) - Number(r.value) / (1 + Number(r.change_pct) / 100);
+      if (r.verified) verifiedN++;
+      if (r.has_alert) alertN++;
+    });
+    var tgPct = tCost ? (tg / tCost) * 100 : 0;
+    var todayBase = tv - tToday, todayPct = todayBase ? (tToday / todayBase) * 100 : 0;
+
+    countUp($('ms-hero'), tv, 3, 1100);
+    $('ms-hero-delta').className = 'hero-delta ' + cls(tg);
+    $('ms-hero-delta').textContent = sign(tg, 2) + ' · ' + sign(tgPct, 2) + '%';
+    $('ms-subhead').textContent = rows.length + (rows.length === 1 ? ' position' : ' positions') +
+      ', held against the close of ' + fmtLongDate(last) + '.';
+
+    // calm "Latest" ledger line: prices as-of date, plus the most recent dividend among holdings (if any)
+    var latestBits = ['Prices current to ' + fmtLongDate(last)];
+    var ld = d.latestDividend;
+    if (ld && ld.amount != null) {
+      latestBits.push('last dividend ' + fmt(ld.amount) + ' OMR on ' + ld.ticker + ' (' + ld.ex_date + ')');
+    }
+    $('ms-latest').textContent = 'Latest · ' + latestBits.join(' · ');
+    $('ms-latest').style.display = '';
+
+    $('ms-secondary').style.display = '';
+    $('ms-overall-val').className = 'val ' + cls(tg); $('ms-overall-val').textContent = sign(tg, 2);
+    $('ms-overall-pct').textContent = sign(tgPct, 2) + '%';
+    $('ms-today-val').className = 'val ' + cls(tToday); $('ms-today-val').textContent = sign(tToday, 2);
+    $('ms-today-pct').textContent = sign(todayPct, 2) + '%';
+
+    var h = rows.map(function (r, i) {
+      return '<div class="prow" data-ticker="' + r.ticker + '" data-id="' + r.id + '" style="animation-delay:' + Math.min(i * 30, 240) + 'ms">' +
+        '<div class="idx">' + (i + 1) + '</div>' +
+        '<div class="main"><span class="ticker">' + r.ticker + '</span> ' +
+        (r.verified ? '<span class="badge v">verified</span>' : '<span class="badge uv">unverified</span>') +
+        (r.has_alert ? ' <span class="bell">&#128276;</span>' : '') +
+        (r.recent_action ? ' <span class="badge act" title="Recent corporate action">' + r.recent_action + '</span>' : '') +
+        '<div class="sub">' + r.name_en + (r.quantity != null ? ' · ' + r.quantity + ' @ ' + fmt(r.buy_price) : ' · watching') + '</div></div>' +
+        '<div class="value">' + fmt(r.value) + '</div>' +
+        '<div class="gl ' + cls(r.gain_loss) + '">' + sign(r.gain_loss, 2) + '<span class="pct">' + sign(r.change_pct, 2) + '%</span></div>' +
+        '<button class="x" data-id="' + r.id + '" title="Remove">&#10005;</button></div>';
+    }).join('');
+    $('wl').innerHTML = h;
+
+    $('ms-footer').style.display = '';
+    $('ms-footer').innerHTML = '<span>' + rows.length + ' POSITION' + (rows.length === 1 ? '' : 'S') +
+      ' · ' + verifiedN + ' VERIFIED' + (alertN ? ' · ' + alertN + ' ALERT' + (alertN === 1 ? '' : 'S') + ' ARMED' : '') +
+      '</span><button class="text-btn" id="excel-home">DOWNLOAD EXCEL</button>';
+    $('excel-home').onclick = function () { dlExcel('start=' + xs + '&end=' + end, 'msx-' + end + '.xlsx'); };
+
+    var c = localStorage.getItem('c_home{}');
+    if (c) $('synced').textContent = 'Last synced ' + new Date(JSON.parse(c).t).toLocaleString();
+    Array.prototype.forEach.call(document.querySelectorAll('.prow'), function (row) {
+      row.onclick = function (ev) {
+        if (ev.target.closest('.x')) return;
+        openDetail(row.getAttribute('data-ticker'));
+      };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.x'), function (b) {
+      b.onclick = function (ev) {
+        ev.stopPropagation();
+        if (!confirm('Remove this stock from your list?')) return;
+        var row = b.closest('.prow');
+        if (row) row.remove(); // remove instantly instead of waiting on the round trip
+        apiWrite('remove', { id: b.getAttribute('data-id') }).then(loadHome, loadHome);
+      };
+    });
+  }).catch(function (e) { $('wl').innerHTML = '<p class="mut" style="padding:20px">Could not load: ' + e.message + '</p>'; });
+}
+
+// ---------- detail + add flow ----------
+var verifiedFlag = false;
+// Dividends block for the detail sheet. Best-effort cached data (stockanalysis, via the backend);
+// when we have none it degrades to a plain link-out. Shows a personalized payout when the user
+// holds the stock (we know their share count), plus a quiet "how it's calculated" line otherwise.
+function renderDividends(t, d) {
+  var divs = d.dividends || [];
+  var url = 'https://stockanalysis.com/quote/msm/' + t + '/dividend/';
+  var h = '<hr><div class="add-heading">Dividends</div>';
+  if (divs.length) {
+    var last = divs[0];
+    h += '<div class="stat-row"><span class="lbl">Last dividend</span><span class="val">' + last.ex_date +
+      ' · <b style="color:var(--accent)">' + fmt(last.amount) + '</b> OMR</span></div>';
+    if (d.quantity != null && last.amount != null) {
+      h += '<div class="stat-row"><span class="lbl">On your ' + d.quantity + ' shares</span><span class="val">' +
+        d.quantity + ' &times; ' + fmt(last.amount) + ' = <b>' + (d.quantity * last.amount).toFixed(3) + ' OMR</b></span></div>';
+    } else {
+      h += '<p class="mut" style="font-size:12px;margin:8px 0 0">Your dividend = shares held &times; cash amount per share.</p>';
+    }
+    if (divs.length > 1) {
+      h += '<div class="acts" style="margin-top:12px"><b>Recent dividends</b>' + divs.slice(0, 6).map(function (dv) {
+        return '<div class="mut">' + dv.ex_date + ' &middot; ' + fmt(dv.amount) + ' OMR' + (dv.pay_date ? ' &middot; paid ' + dv.pay_date : '') + '</div>';
+      }).join('') + '</div>';
+    }
+    h += '<p class="cal-caption" style="margin-top:10px">Dividend data via <a href="' + url + '" target="_blank" rel="noopener">stockanalysis.com</a> &mdash; <a href="' + url + '" target="_blank" rel="noopener">full history &rarr;</a></p>';
+  } else {
+    h += '<p class="mut" style="font-size:13px;margin-top:6px">No dividend data cached yet.</p>' +
+      '<p class="cal-caption" style="margin-top:6px"><a href="' + url + '" target="_blank" rel="noopener">See dividend history on stockanalysis &rarr;</a></p>';
+  }
+  return h;
+}
+
+// custom clay calendar for the buy-date field — reuses the Compare tab's .cal-* styles. #f-date stays
+// a hidden input holding YYYY-MM-DD (what verify/save read), so only the display + picker are new.
+var buyDatePicker = null;
+function initBuyDatePicker() {
+  var hid = $('f-date'), btn = $('f-date-btn'), wrap = $('f-cal'), grid = $('f-cal-grid'), title = $('f-cal-title');
+  if (!hid || !btn) return null;
+  var now = new Date(), todayStr = now.toISOString().slice(0, 10);
+  var cur = { y: now.getFullYear(), m: now.getMonth() };
+  function fmtDisplay(ds) { if (!ds) return 'Pick a date'; var p = ds.split('-'); return (+p[2]) + ' ' + CMP_MON[(+p[1]) - 1] + ' ' + p[0]; }
+  function syncBtn() { btn.textContent = fmtDisplay(hid.value); btn.classList.toggle('empty', !hid.value); }
+  function render() {
+    title.textContent = CMP_MON[cur.m] + ' ' + cur.y;
+    var startDow = new Date(Date.UTC(cur.y, cur.m, 1)).getUTCDay();
+    var days = new Date(Date.UTC(cur.y, cur.m + 1, 0)).getUTCDate();
+    var html = '';
+    for (var i = 0; i < startDow; i++) html += '<div class="cal-day empty"></div>';
+    for (var d = 1; d <= days; d++) {
+      var ds = cur.y + '-' + String(cur.m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      var future = ds > todayStr; // you can't have bought in the future
+      html += '<div class="cal-day' + (future ? ' disabled' : '') + (ds === todayStr ? ' today' : '') + (ds === hid.value ? ' selected' : '') + '"' + (future ? '' : ' data-d="' + ds + '"') + '>' + d + '</div>';
+    }
+    grid.innerHTML = html;
+    Array.prototype.forEach.call(grid.querySelectorAll('.cal-day[data-d]'), function (el) {
+      el.onclick = function () { hid.value = el.getAttribute('data-d'); syncBtn(); close(); };
+    });
+  }
+  function open() { if (hid.value) { var p = hid.value.split('-'); cur = { y: +p[0], m: +p[1] - 1 }; } render(); wrap.style.display = 'block'; btn.classList.add('open'); }
+  function close() { wrap.style.display = 'none'; btn.classList.remove('open'); }
+  btn.onclick = function (e) { e.stopPropagation(); wrap.style.display === 'none' ? open() : close(); };
+  $('f-cal-prev').onclick = function () { if (cur.m === 0) { cur.m = 11; cur.y--; } else cur.m--; render(); };
+  $('f-cal-next').onclick = function () { if (cur.m === 11) { cur.m = 0; cur.y++; } else cur.m++; render(); };
+  $('f-cal-clear').onclick = function () { hid.value = ''; syncBtn(); close(); };
+  // one global outside-click closer (the picker is rebuilt per open, but this attaches once)
+  if (!window._buyDateOutside) {
+    window._buyDateOutside = true;
+    document.addEventListener('click', function (e) {
+      var w = $('f-cal'), b = $('f-date-btn');
+      if (w && w.style.display !== 'none' && !w.contains(e.target) && e.target !== b) { w.style.display = 'none'; if (b) b.classList.remove('open'); }
+    });
+  }
+  syncBtn();
+  return { syncBtn: syncBtn };
+}
+
+function openDetail(t) {
+  $('modal').innerHTML = '<div class="sheet-loading-rule"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>' +
+    '<div class="sheet-loading-label">PULLING MSX HISTORY FOR ' + t + '</div>';
+  $('overlay').style.display = 'block'; $('modal').style.display = 'block';
+  document.body.classList.add('modal-open');
+  api('detail', { ticker: t }).then(function (d) {
+    var L = d.latest || {};
+    var hasPrice = L.close != null;
+    var watching = d.watching, hasPosition = d.hasPosition;
+    var html = '<div class="detail-head">' +
+      '<div><div class="detail-kicker">' + (d.sector || '&nbsp;') + '</div><h2>' + t + '</h2><div class="detail-name">' + (d.name || '') + '</div></div>' +
+      '<div class="detail-head-right">' +
+      '<button class="watch-pill' + (watching ? ' on' : '') + '" id="watch-pill">' +
+      (watching ? '<span>&#9679;</span><span>WATCHING</span>' : '<span>+</span><span>WATCHLIST</span>') + '</button>' +
+      '<button class="close-x" id="f-cancel-x">&#10005;</button></div></div>';
+
+    if (hasPrice) {
+      html += '<div class="detail-price-row"><div class="big ' + cls(L.change_pct) + '">' + fmt(L.close) + '</div>' +
+        '<div class="' + cls(L.change_pct) + '" style="font-weight:600;font-size:15px">' + (L.change_pct != null ? sign(L.change_pct, 2) + '%' : '') + '</div>' +
+        '<div class="detail-price-meta">OMR · CLOSE ' + (L.date || '—') + '</div></div>';
+      if (d.gapNote) html += '<p style="font-size:13px;margin:6px 0;color:' + (d.gapNote.indexOf('Recovered') === 0 ? 'var(--good)' : 'var(--accent)') + '">' + d.gapNote + '</p>';
+      html += '<div id="spark" style="height:96px;margin-top:14px"></div><p class="mut" id="spark-caption" style="font-size:12px;margin-top:6px"></p>' +
+        '<div class="stat-row"><span class="lbl">Open</span><span class="val">' + fmt(L.open) + '</span></div>' +
+        '<div class="stat-row"><span class="lbl">Day high</span><span class="val">' + fmt(L.high) + '</span></div>' +
+        '<div class="stat-row"><span class="lbl">Day low</span><span class="val">' + fmt(L.low) + '</span></div>' +
+        '<div class="stat-row"><span class="lbl">Sector</span><span class="val">' + (d.sector || '—') + '</span></div>' +
+        '<div class="stat-row"><span class="lbl">Last traded</span><span class="val">' + (L.date || '—') + '</span></div>';
+    } else {
+      html += '<div class="detail-price-row"><div class="big">no data</div><div class="detail-price-meta">OMR</div></div>' +
+        '<p class="mut" style="margin-top:14px">NO PRICE RECORDED — NOTHING TO CHART</p>' +
+        '<div class="stat-row"><span class="lbl">Sector</span><span class="val">' + (d.sector || '—') + '</span></div>';
+    }
+    if (d.actions && d.actions.length) {
+      html += '<div class="acts"><b>Recent corporate actions</b>' + d.actions.map(function (a) {
+        return '<div class="mut">' + a.date + ' - ' + (a.title || a.type) + (a.link ? ' <a href="' + a.link + '" target="_blank" rel="noopener">PDF</a>' : '') + '</div>';
+      }).join('') + '</div>';
+    }
+    html += renderDividends(t, d);
+    html += '<hr>' +
+      '<div class="add-heading">Add to my stocks</div>' +
+      '<p class="mut" style="font-size:13px">Enter what you bought the tool will check it against MSX history.</p>' +
+      '<div class="field-grid">' +
+      '<div class="field"><label>How many shares</label><input type="number" id="f-qty" min="0" step="any"></div>' +
+      '<div class="field"><label>Buy price (OMR)</label><input type="number" id="f-price" min="0" step="0.001"></div></div>' +
+      '<div class="field" style="max-width:320px"><label>Buy date (optional)</label>' +
+      '<input type="hidden" id="f-date">' +
+      '<button type="button" class="date-trigger empty" id="f-date-btn">Pick a date</button>' +
+      '<div class="cal-wrap" id="f-cal" style="display:none">' +
+      '<div class="cal-head"><button type="button" id="f-cal-prev">&#8249;</button>' +
+      '<span class="cal-title" id="f-cal-title"></span>' +
+      '<button type="button" id="f-cal-next">&#8250;</button></div>' +
+      '<div class="cal-weekdays"><div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div></div>' +
+      '<div class="cal-grid" id="f-cal-grid"></div>' +
+      '<div style="text-align:right;margin-top:8px"><span class="btn-inline" id="f-cal-clear">Clear</span></div>' +
+      '</div></div>' +
+      '<button class="btn-pill" id="f-verify">Check this price</button>' +
+      '<div id="verdict"></div>' +
+      '<div class="alertrow"><label><input type="checkbox" id="f-alert"> Also alert me when price goes</label>' +
+      '<button type="button" class="cmp-switch alert-switch" id="f-cond-toggle" role="switch" aria-checked="false">' +
+      '<span class="knob"></span><span class="opt opt-all">BELOW</span><span class="opt opt-mine">ABOVE</span></button>' +
+      '<input type="hidden" id="f-cond" value="below">' +
+      '<input type="number" id="f-thresh" step="0.001" style="width:110px" placeholder="0.000"></div>' +
+      '<p class="mut">Alerts are end of day: you get an email after market close if the closing price crossed your level. It fires once, then switches off.</p>' +
+      '<div class="bar"><button class="btn-pill" id="f-save">Save position</button><button class="btn-inline" id="f-cancel">Cancel</button></div>';
+    $('modal').innerHTML = html;
+    verifiedFlag = false;
+    buyDatePicker = initBuyDatePicker();
+
+    if (hasPrice && d.trend && d.trend.length && window.Plotly) {
+      var last44 = d.trend.slice(-44);
+      var closes = last44.map(function (p) { return p.close; });
+      var lo = Math.min.apply(null, closes), hi = Math.max.apply(null, closes);
+      $('spark-caption').textContent = 'LAST ' + last44.length + ' TRADING DAYS · LOW ' + fmt(lo) + ' · HIGH ' + fmt(hi);
+      Plotly.newPlot('spark', [{
+        x: last44.map(function (p) { return p.date; }), y: closes, mode: 'lines', fill: 'tozeroy',
+        line: { color: cssVar('--accent'), width: 1.6 }, fillcolor: 'rgba(184,92,62,.13)',
+      }], chartLayout({ margin: { l: 4, r: 4, t: 4, b: 4 }, height: 96, xaxis: { visible: false }, yaxis: { visible: false } }),
+        { displayModeBar: false, responsive: true });
+    }
+
+    // watchlist pill: toggles a lightweight watch, independent of holding a real position
+    $('watch-pill').onclick = function () {
+      if (hasPosition) return; // a real position is removed from My Stocks, not un-watched here
+      var pill = $('watch-pill');
+      pill.disabled = true; pill.innerHTML = '<span>SAVING…</span>';
+      var action = watching ? 'unwatch' : 'watch';
+      // deferred success: the pill flips now and the write syncs when it can (offline-safe)
+      apiWrite(action, { ticker: t }).then(function () {
+        watching = !watching;
+        pill.disabled = false; pill.className = 'watch-pill' + (watching ? ' on' : '');
+        pill.innerHTML = watching ? '<span>&#9679;</span><span>WATCHING</span>' : '<span>+</span><span>WATCHLIST</span>';
+      });
+    };
+    $('f-cancel').onclick = closeModal;
+    $('f-cancel-x').onclick = closeModal;
+    // below/above is a binary choice, so it reuses the SCOPE capsule switch (.cmp-switch) rather
+    // than a native <select> whose open option list is drawn by the OS and can't be themed.
+    // aria-checked true means "above"; #f-cond keeps the value f-save reads.
+    $('f-cond-toggle').onclick = function () {
+      var above = $('f-cond-toggle').getAttribute('aria-checked') !== 'true';
+      $('f-cond-toggle').setAttribute('aria-checked', String(above));
+      $('f-cond').value = above ? 'above' : 'below';
+    };
+    $('f-price').oninput = function () { if (!$('f-thresh').value) $('f-thresh').value = $('f-price').value; };
+    $('f-verify').onclick = function () {
+      var btn = $('f-verify'), v = $('verdict');
+      btn.disabled = true; btn.textContent = 'Checking…';
+      v.style.display = 'block'; v.className = ''; v.textContent = '';
+      api('verify', { ticker: t, price: $('f-price').value, date: $('f-date').value }).then(function (r) {
+        verifiedFlag = false;
+        btn.disabled = false; btn.textContent = 'Check again';
+        if (r.verdict === 'verified') { v.className = 'ok'; v.textContent = 'Verified: price matches ' + r.date + ' (low ' + fmt(r.low) + ' - high ' + fmt(r.high) + ', close ' + fmt(r.close) + ')'; verifiedFlag = true; }
+        else if (r.verdict === 'verified_nearby') { v.className = 'ok'; v.textContent = 'Verified: matches nearby trading day ' + r.date + ' (close ' + fmt(r.close) + ')'; verifiedFlag = true; }
+        else if (r.verdict === 'mismatch') { v.className = 'bad'; v.textContent = 'Does not match ' + r.date + ' (low ' + fmt(r.low) + ' - high ' + fmt(r.high) + ', close ' + fmt(r.close) + '). You can still save it as unverified.'; }
+        else if (r.verdict === 'candidates') {
+          v.className = 'mid'; v.innerHTML = '<span class="cand-lead">No date given, this price matches:</span>' +
+            '<span class="cand-row">' + r.candidates.map(function (c) {
+              return '<button type="button" class="cmp-pill cand" data-d="' + c.date + '"><span>' + c.date + '</span><span class="cand-px">' + fmt(c.close) + '</span></button>';
+            }).join('') + '</span>';
+          Array.prototype.forEach.call(v.querySelectorAll('.cand'), function (el) {
+            el.onclick = function () { $('f-date').value = el.getAttribute('data-d'); if (buyDatePicker) buyDatePicker.syncBtn(); $('f-verify').click(); };
+          });
+        }
+        else { v.className = 'mid'; v.textContent = 'No trading data near that date.'; }
+      });
+    };
+    $('f-save').onclick = function () {
+      if (!$('f-qty').value || !$('f-price').value) { alert('Enter quantity and buy price.'); return; }
+      var btn = $('f-save');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      var p = { ticker: t, quantity: $('f-qty').value, buy_price: $('f-price').value, buy_date: $('f-date').value, verified: String(verifiedFlag) };
+      if ($('f-alert').checked && $('f-thresh').value) { p.alert_condition = $('f-cond').value; p.alert_threshold = $('f-thresh').value; }
+      // deferred success: captured locally + synced when possible, so no "save failed" path —
+      // the connection light shows whether it's live on the server yet.
+      apiWrite('save', p).then(function () {
+        btn.textContent = 'Saved ✓';
+        setTimeout(function () { closeModal(); loadHome(); }, 400);
+      });
+    };
+  }).catch(function () {
+    $('modal').innerHTML = '<p class="mut" style="padding:20px">Could not load — check your connection and try again.</p>' +
+      '<div class="bar"><button class="btn-pill" id="f-close-err">Close</button></div>';
+    $('f-close-err').onclick = closeModal;
+  });
+}
+function closeModal() { $('overlay').style.display = 'none'; $('modal').style.display = 'none'; document.body.classList.remove('modal-open'); }
+document.addEventListener('keydown', function (ev) {
+  if (ev.key !== 'Escape') return;
+  if ($('modal').style.display === 'block') closeModal();
+  else if ($('settings-modal').classList.contains('open')) closeSettings();
+});
+
+// ---------- ticker picker (all-stocks / my-stocks toggle) ----------
+// Dressed like the Browse search: My stocks shows the held tickers as tappable pills right away
+// (still typeable to filter them); All stocks hides the pills and is type-to-search only, listing
+// flat .cmd-row results (same look + keyboard nav as Browse). root is the .tpick wrapper.
+// opts.defaultScope: 'mine' (default) or 'all'. Returns { setAllList, setSelected, ready }. The pick
+// is written to the hidden input (id read elsewhere via $(id).value); its chosen label is stashed on
+// hidden.dataset.label; the hidden input's own .onchange (if a caller set one) fires on every pick.
+function makeTickerPicker(root, opts) {
+  opts = opts || {};
+  var hidden = root.querySelector('input[type=hidden]');
+  var q = root.querySelector('.tpick-q');
+  var results = root.querySelector('.tpick-results');
+  var pills = root.querySelector('#ch-pills');
+  var allBtn = root.querySelector('[data-scope="all"]');
+  var mineBtn = root.querySelector('[data-scope="mine"]');
+  var scope = opts.defaultScope === 'all' ? 'all' : 'mine';
+  var allList = [];
+  var mineList = null;
+  var minePromise = null;
+  var idx = 0; // active row in the all-scope results (keyboard nav)
+
+  function setScopeUI() {
+    allBtn.classList.toggle('on', scope === 'all');
+    mineBtn.classList.toggle('on', scope === 'mine');
+    q.placeholder = scope === 'mine' ? 'Search my stocks...' : 'Search all stocks...';
+  }
+  setScopeUI();
+
+  function loadMine() {
+    if (!minePromise) {
+      minePromise = api('home').then(function (d) {
+        mineList = (d.watchlist || [])
+          .filter(function (w) { return w.quantity != null && w.buy_price != null; })
+          .map(function (w) { return { ticker: w.ticker, name_en: w.name_en }; });
+        if (scope === 'mine') render();
+        return mineList;
+      });
+    }
+    return minePromise;
+  }
+
+  function commit(ticker, label) {
+    hidden.value = ticker;
+    hidden.dataset.label = label || ticker;
+    if (typeof hidden.onchange === 'function') hidden.onchange();
+  }
+
+  function highlight() { // active-row marker + ENTER tag, like Browse's brCmdHighlight
+    var rows = results.querySelectorAll('.cmd-row');
+    Array.prototype.forEach.call(rows, function (el, i) {
+      el.classList.toggle('active', i === idx);
+      var tag = el.querySelector('.tag'); if (tag) tag.remove();
+      if (i === idx && el.getAttribute('data-t')) el.insertAdjacentHTML('beforeend', '<span class="tag">ENTER</span>');
+    });
+  }
+
+  // My stocks: pills of held tickers (filtered by the typed query), single-select
+  function renderPills() {
+    var f = q.value.trim().toLowerCase();
+    var list = (mineList || []).filter(function (c) {
+      return !f || c.ticker.toLowerCase().indexOf(f) !== -1 || (c.name_en || '').toLowerCase().indexOf(f) !== -1;
+    });
+    pills.innerHTML = list.map(function (c) {
+      var on = c.ticker === hidden.value;
+      return '<button type="button" class="cmp-pill' + (on ? ' on' : '') + '" data-t="' + c.ticker + '">' +
+        '<span>' + c.ticker + '</span></button>';
+    }).join('') || '<p class="mut" style="font-size:13px">' + (mineList && mineList.length ? 'No matches' : 'No held positions yet.') + '</p>';
+    Array.prototype.forEach.call(pills.querySelectorAll('.cmp-pill'), function (el) {
+      el.onclick = function () {
+        var c = (mineList || []).filter(function (x) { return x.ticker === el.getAttribute('data-t'); })[0];
+        commit(el.getAttribute('data-t'), c ? c.name_en : el.getAttribute('data-t'));
+        renderPills(); // re-mark the active pill
+      };
+    });
+  }
+
+  // All stocks: flat .cmd-row results, type-to-search only
+  function renderResults() {
+    var f = q.value.trim().toLowerCase();
+    if (!f) { results.style.display = 'none'; results.innerHTML = ''; return; }
+    idx = 0;
+    var items = allList.filter(function (c) {
+      return c.ticker.toLowerCase().indexOf(f) !== -1 || (c.name_en || '').toLowerCase().indexOf(f) !== -1;
+    }).slice(0, 6);
+    if (!items.length) { results.innerHTML = '<div class="cmd-row mut" style="cursor:default">No matches</div>'; results.style.display = 'block'; return; }
+    results.innerHTML = items.map(function (c, i) {
+      return '<div class="cmd-row" data-t="' + c.ticker + '" style="animation-delay:' + (i * 40) + 'ms"><span><b>' + c.ticker + '</b> ' + c.name_en + '</span></div>';
+    }).join('');
+    results.style.display = 'block';
+    highlight();
+    Array.prototype.forEach.call(results.querySelectorAll('.cmd-row'), function (el, i) {
+      var t = el.getAttribute('data-t'); if (!t) return;
+      el.onmouseenter = function () { idx = i; highlight(); };
+      el.onclick = function () {
+        var c = allList.filter(function (x) { return x.ticker === t; })[0];
+        q.value = c ? c.name_en : t; results.style.display = 'none';
+        commit(t, c ? c.name_en : t);
+      };
+    });
+  }
+
+  function render() {
+    if (scope === 'mine') { results.style.display = 'none'; pills.style.display = 'flex'; renderPills(); }
+    else { pills.style.display = 'none'; renderResults(); }
+  }
+
+  allBtn.onclick = function () {
+    if (scope === 'all') return;
+    scope = 'all'; setScopeUI(); q.value = ''; render();
+  };
+  mineBtn.onclick = function () {
+    if (scope === 'mine') return;
+    scope = 'mine'; setScopeUI(); q.value = '';
+    if (mineList === null) loadMine().then(render); else render();
+  };
+  q.oninput = render;
+  q.onfocus = function () { q.select(); render(); };
+  q.onkeydown = function (ev) {
+    if (scope !== 'all') return;
+    var rows = results.querySelectorAll('.cmd-row[data-t]');
+    if (ev.key === 'ArrowDown' && rows.length) { ev.preventDefault(); idx = (idx + 1) % rows.length; highlight(); }
+    else if (ev.key === 'ArrowUp' && rows.length) { ev.preventDefault(); idx = (idx - 1 + rows.length) % rows.length; highlight(); }
+    else if (ev.key === 'Enter') { var pick = rows[idx] || rows[0]; if (pick) pick.click(); }
+    else if (ev.key === 'Escape') { q.value = ''; render(); }
+  };
+  document.addEventListener('click', function (e) { if (!root.contains(e.target) && scope === 'all') results.style.display = 'none'; });
+
+  if (scope === 'mine') loadMine();
+
+  return {
+    setAllList: function (cs) { allList = cs; if (scope === 'all') render(); },
+    setSelected: function (t, label) { hidden.value = t; hidden.dataset.label = label || t; if (scope === 'mine' && mineList) renderPills(); },
+    // resolves once the default scope's list is loaded (mine -> watchlist fetch, all -> already-sync)
+    ready: function () { return scope === 'mine' ? loadMine() : Promise.resolve(allList); },
+  };
+}
+
+// ---------- compare ----------
+// ---------- compare: scope switch, stock picker, single calendar + period chips ----------
+var cmpInit = false;
+var cmpScope = 'all', cmpPicked = [], cmpSingleTicker = '', cmpAllCompanies = [];
+var cmpPA = { start: null, end: null }, cmpPB = { start: null, end: null }; // A = the picked range; B = the equal window right before it
+var cmpPending = null;   // first-tapped date awaiting a second tap (click mode, so a range can span two months)
+var cmpDragging = false, cmpDidDrag = false, cmpDownAt = null;   // drag-select state
+var cmpNavMode = 'days', cmpMonth = null; // {y, m} calendar cursor
+var CMP_HISTORY_START = '2024-07-01';
+
+function cmpToday() { return (state && state.last_msx_date) || new Date().toISOString().slice(0, 10); }
+function cmpIsWeekend(d) { var wd = d.getUTCDay(); return wd === 5 || wd === 6; } // MSX closed Fri/Sat
+function cmpDateStr(y, m, day) { return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0'); }
+function cmpFmtRange(p) {
+  if (!p.start) return 'not set';
+  return p.start === p.end ? p.start : p.start + ' → ' + p.end;
+}
+// human, compact range: "3 Feb 2026" · "21–27 Jan 2026" · "28 Jan → 3 Feb 2026".
+// Collapses the shared month/year so the same digits aren't repeated (the ISO form was the
+// "dates all over the place" problem). Backend still gets raw ISO from cmpPA/cmpPB.
+var CMP_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function cmpFmtHuman(p) {
+  if (!p || !p.start) return '';
+  var a = p.start.split('-'), b = p.end.split('-');
+  var ad = +a[2], am = +a[1], ay = +a[0], bd = +b[2], bm = +b[1], by = +b[0];
+  if (p.start === p.end) return ad + ' ' + CMP_MON[am - 1] + ' ' + ay;
+  if (ay === by && am === bm) return ad + '–' + bd + ' ' + CMP_MON[bm - 1] + ' ' + by;
+  if (ay === by) return ad + ' ' + CMP_MON[am - 1] + ' → ' + bd + ' ' + CMP_MON[bm - 1] + ' ' + by;
+  return ad + ' ' + CMP_MON[am - 1] + ' ' + ay + ' → ' + bd + ' ' + CMP_MON[bm - 1] + ' ' + by;
+}
+// Which period the next calendar pick fills, and whether B was picked by hand.
+// B is auto-derived until the user picks it themselves; after that nothing overwrites it
+// silently — "USE THE STRETCH BEFORE" is the way back to automatic.
+var cmpTarget = 'a', cmpBManual = false;
+
+// B defaults to the equal-length window immediately before A (clamped to the start of available
+// history). A hand-picked B is left alone.
+function cmpDeriveB() {
+  if (cmpBManual) return;
+  if (!cmpPA.start) { cmpPB = { start: null, end: null }; return; }
+  var s = new Date(cmpPA.start + 'T00:00:00Z'), e = new Date(cmpPA.end + 'T00:00:00Z');
+  var lenDays = Math.round((e - s) / 86400000) + 1;
+  var bEnd = new Date(s); bEnd.setUTCDate(bEnd.getUTCDate() - 1);
+  var bStart = new Date(bEnd); bStart.setUTCDate(bStart.getUTCDate() - (lenDays - 1));
+  var bEndStr = bEnd.toISOString().slice(0, 10), bStartStr = bStart.toISOString().slice(0, 10);
+  if (bEndStr < CMP_HISTORY_START) { cmpPB = { start: null, end: null }; return; } // nothing earlier to compare against
+  cmpPB = { start: bStartStr < CMP_HISTORY_START ? CMP_HISTORY_START : bStartStr, end: bEndStr };
+}
+
+// One home for the dates: the hero. Selected range big, the auto-compared stretch quiet
+// under it, both in the human format. No separate SELECTED/COMPARED rows to echo them.
+function renderCompareHero() {
+  $('cmp-hero-a').classList.toggle('on', cmpTarget === 'a');
+  $('cmp-hero-vs').classList.toggle('on', cmpTarget === 'b');
+  $('cmp-b-auto').style.display = cmpBManual ? '' : 'none';
+  if (!cmpPA.start) {
+    $('cmp-hero-a').textContent = 'Pick a range';
+    $('cmp-hero-vs').textContent = '';
+    $('cmp-footer-summary').textContent = 'PICK A RANGE';
+    return;
+  }
+  $('cmp-hero-a').textContent = cmpFmtHuman(cmpPA);
+  $('cmp-hero-vs').textContent = cmpPB.start
+    ? 'vs ' + cmpFmtHuman(cmpPB) + (cmpBManual ? '' : ' (auto)')
+    : 'pick something to compare against';
+  $('cmp-footer-summary').textContent = cmpPB.start ? 'READY TO COMPARE' : 'NOTHING TO COMPARE AGAINST';
+}
+// clicking a hero date aims the calendar at that period; B can't be aimed at before A exists
+function cmpSetTarget(t) {
+  if (t === 'b' && !cmpPA.start) return;
+  cmpTarget = t; cmpPending = null;
+  renderPeriods(); cmpPaintRange();
+}
+function renderPeriods() { renderCompareHero(); }
+
+// paint both ranges onto the calendar cells in place (no rebuild — safe to call mid-drag).
+// A is the accent fill, B the quieter one, so you can see what's being compared against what.
+function cmpPaintRange() {
+  Array.prototype.forEach.call($('cal-grid').querySelectorAll('.cal-day[data-d]'), function (el) {
+    var ds = el.getAttribute('data-d');
+    el.classList.remove('selected', 'in-range', 'b-selected', 'b-in-range');
+    if (cmpPB.start) {
+      if (ds === cmpPB.start || ds === cmpPB.end) el.classList.add('b-selected');
+      else if (ds > cmpPB.start && ds < cmpPB.end) el.classList.add('b-in-range');
+    }
+    if (cmpPA.start) {
+      if (ds === cmpPA.start || ds === cmpPA.end) el.classList.add('selected');
+      else if (ds > cmpPA.start && ds < cmpPA.end) el.classList.add('in-range');
+    }
+  });
+}
+// a calendar pick fills whichever period is currently aimed at
+function cmpSetRange(a, b) {
+  var r = a < b ? { start: a, end: b } : { start: b, end: a };
+  if (cmpTarget === 'b') { cmpPB = r; cmpBManual = true; }
+  else { cmpPA = r; cmpDeriveB(); }
+  renderPeriods();
+  cmpPaintRange();
+}
+
+// quick range presets, anchored to the picked end date (or today) — kept from the old picker
+function renderSuggestions() {
+  var anchor = cmpPA.end || cmpToday();
+  var a = new Date(anchor + 'T00:00:00Z');
+  function addDays(n) { var d = new Date(a); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+  var chips = [
+    { label: 'Just this day', s: anchor, e: anchor },
+    { label: 'Week', s: addDays(-6), e: anchor },
+    { label: 'Month', s: addDays(-29), e: anchor },
+    { label: '3 Months', s: addDays(-89), e: anchor },
+  ];
+  $('cmp-suggestions').style.display = 'block';
+  $('cmp-suggestions').innerHTML =
+    '<p class="cal-caption" style="margin-top:0">Drag across the calendar to pick any range, or jump to a quick one:</p>' +
+    chips.map(function (c) {
+      var s = c.s < CMP_HISTORY_START ? CMP_HISTORY_START : c.s;
+      var human = cmpFmtHuman({ start: s, end: c.e });
+      return '<div class="sug-row" data-s="' + s + '" data-e="' + c.e + '" title="' + human + '">' + c.label + '<span class="mut">' + human + '</span></div>';
+    }).join('');
+  Array.prototype.forEach.call($('cmp-suggestions').querySelectorAll('.sug-row'), function (el) {
+    el.onclick = function () {
+      cmpSetRange(el.getAttribute('data-s'), el.getAttribute('data-e'));
+      renderCalendar(); renderSuggestions();
+    };
+  });
+}
+
+function renderCalendar() {
+  var y = cmpMonth.y, m = cmpMonth.m, today = cmpToday();
+  $('cal-title').innerHTML = new Date(Date.UTC(y, m, 1)).toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' }) + ' <span style="opacity:.5">▾</span>';
+  var atStart = y < 2024 || (y === 2024 && m < 6), atEnd = (y + '-' + String(m + 1).padStart(2, '0')) >= today.slice(0, 7);
+  $('cal-prev').disabled = atStart; $('cal-next').disabled = atEnd;
+  if (cmpNavMode === 'months') {
+    $('cal-grid').style.display = 'none'; $('cal-weekdays').style.display = 'none'; $('cal-year-grid').style.display = 'block';
+    renderYearGrid(); return;
+  }
+  $('cal-grid').style.display = ''; $('cal-weekdays').style.display = ''; $('cal-year-grid').style.display = 'none';
+  $('cal-weekdays').innerHTML = ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(function (d) { return '<div>' + d + '</div>'; }).join('');
+  var first = new Date(Date.UTC(y, m, 1)), startDow = first.getUTCDay(), daysInMonth = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  var html = '';
+  for (var i = 0; i < startDow; i++) html += '<div class="cal-day empty"></div>';
+  for (var day = 1; day <= daysInMonth; day++) {
+    var ds = cmpDateStr(y, m, day), dObj = new Date(ds + 'T00:00:00Z');
+    var disabled = cmpIsWeekend(dObj) || ds < CMP_HISTORY_START || ds > today;
+    var cls2 = 'cal-day' + (disabled ? ' disabled' : '') + (ds === today && !disabled ? ' today' : '');
+    html += '<div class="' + cls2 + '" data-d="' + ds + '">' + day + '</div>';
+  }
+  $('cal-grid').innerHTML = html;
+  Array.prototype.forEach.call($('cal-grid').querySelectorAll('.cal-day:not(.disabled):not(.empty)'), function (el) {
+    var ds = el.getAttribute('data-d');
+    el.onmousedown = function (e) { e.preventDefault(); cmpDragging = true; cmpDidDrag = false; cmpDownAt = ds; };
+    el.onmouseenter = function () { if (cmpDragging) { cmpDidDrag = true; cmpPending = null; cmpSetRange(cmpDownAt, ds); } };
+  });
+  cmpPaintRange();
+}
+function renderYearGrid() {
+  var years = [2024, 2025, 2026], months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var html = '<div class="cal-year-row">' + years.map(function (y) { return '<span class="' + (y === cmpMonth.y ? 'on' : '') + '" data-y="' + y + '">' + y + '</span>'; }).join('') + '</div>';
+  html += '<div class="cal-year-grid">' + months.map(function (mn, i) {
+    var ym = cmpMonth.y + '-' + String(i + 1).padStart(2, '0');
+    var disabled = ym < '2024-07' || ym > cmpToday().slice(0, 7);
+    return '<div class="cal-month-cell' + (disabled ? ' disabled' : '') + '" data-m="' + i + '">' + mn + '</div>';
+  }).join('') + '</div>';
+  $('cal-year-grid').innerHTML = html;
+  Array.prototype.forEach.call($('cal-year-grid').querySelectorAll('.cal-year-row span'), function (el) {
+    el.onclick = function () { cmpMonth.y = Number(el.getAttribute('data-y')); renderCalendar(); };
+  });
+  Array.prototype.forEach.call($('cal-year-grid').querySelectorAll('.cal-month-cell:not(.disabled)'), function (el) {
+    el.onclick = function () { cmpMonth.m = Number(el.getAttribute('data-m')); cmpNavMode = 'days'; renderCalendar(); };
+  });
+}
+// End a drag; or, if it was a plain click rather than a drag, treat it as a two-tap range pick
+// (first tap sets the start, second tap the end) so a range can still span two calendar months.
+document.addEventListener('mouseup', function () {
+  if (!cmpDragging) return;
+  cmpDragging = false;
+  if (cmpDidDrag) { renderSuggestions(); return; }
+  var ds = cmpDownAt;
+  if (cmpPending == null) {
+    cmpPending = ds;
+    if (cmpTarget === 'b') { cmpPB = { start: ds, end: ds }; cmpBManual = true; }
+    else { cmpPA = { start: ds, end: ds }; cmpDeriveB(); }
+  }
+  else { cmpSetRange(cmpPending, ds); cmpPending = null; }
+  renderPeriods(); renderCalendar(); renderSuggestions();
+});
+
+function cmpRenderPills() {
+  var q = $('cmp-search').value.trim().toLowerCase();
+  var shown = myPositions.filter(function (r) { return !q || r.ticker.toLowerCase().indexOf(q) > -1 || r.name_en.toLowerCase().indexOf(q) > -1; });
+  $('cmp-pills').innerHTML = shown.map(function (r) {
+    var on = cmpPicked.indexOf(r.ticker) > -1;
+    return '<button type="button" class="cmp-pill' + (on ? ' on' : '') + '" data-t="' + r.ticker + '">' +
+      '<span>' + (on ? '&#9679;' : '+') + '</span><span>' + r.ticker + '</span></button>';
+  }).join('') || '<p class="mut" style="font-size:13px">No held positions yet.</p>';
+  Array.prototype.forEach.call($('cmp-pills').querySelectorAll('.cmp-pill'), function (el) {
+    el.onclick = function () {
+      var t = el.getAttribute('data-t'), i = cmpPicked.indexOf(t);
+      if (i > -1) cmpPicked.splice(i, 1); else cmpPicked.push(t);
+      cmpRenderPills(); cmpRenderScopeSummary();
+    };
+  });
+}
+function cmpRenderScopeSummary() {
+  if (cmpScope === 'all') $('cmp-scope-summary').textContent = cmpSingleTicker ? cmpSingleTicker : 'ALL LISTED COMPANIES';
+  else $('cmp-scope-summary').textContent = cmpPicked.length + ' OF ' + myPositions.length + ' PICKED';
+}
+function cmpSetScope(scope) {
+  cmpScope = scope;
+  $('cmp-switch').setAttribute('aria-checked', String(scope === 'mine'));
+  $('cmp-picker-block').style.display = scope === 'mine' ? '' : 'none';
+  $('cmp-search').placeholder = scope === 'mine' ? 'Search within my stocks' : 'Search a stock, or leave blank for all';
+  $('cmp-search').value = ''; cmpSingleTicker = '';
+  $('cmp-search-results').style.display = 'none';
+  if (scope === 'mine') cmpRenderPills();
+  cmpRenderScopeSummary();
+}
+$('cmp-switch').onclick = function () { cmpSetScope(cmpScope === 'all' ? 'mine' : 'all'); };
+$('cmp-pick-all').onclick = function () { cmpPicked = myPositions.map(function (r) { return r.ticker; }); cmpRenderPills(); cmpRenderScopeSummary(); };
+$('cmp-pick-none').onclick = function () { cmpPicked = []; cmpRenderPills(); cmpRenderScopeSummary(); };
+// keyboard-nav for the solo-stock search — same arrow/Enter pattern as Browse's br-filter
+// and the Charts picker, so typing a name + Enter (or RUN with typed-but-unpicked text)
+// actually resolves a solo ticker instead of silently falling back to an all-stocks run.
+var cmpCmdIndex = 0;
+function cmpCmdHighlight() {
+  var rows = $('cmp-search-results').querySelectorAll('.cmd-row');
+  Array.prototype.forEach.call(rows, function (el, i) {
+    el.classList.toggle('active', i === cmpCmdIndex);
+    var tag = el.querySelector('.tag'); if (tag) tag.remove();
+    if (i === cmpCmdIndex && el.getAttribute('data-t')) el.insertAdjacentHTML('beforeend', '<span class="tag">ENTER</span>');
+  });
+}
+function cmpPickSingle(ticker) {
+  var c = cmpAllCompanies.filter(function (x) { return x.ticker === ticker; })[0];
+  cmpSingleTicker = ticker;
+  $('cmp-search').value = c ? c.name_en : ticker;
+  $('cmp-search-results').style.display = 'none';
+  cmpRenderScopeSummary();
+}
+// resolve typed-but-unpicked text to the top match before a run. '' means "blank -> all stocks";
+// null means "typed something that matches nothing" — the caller must say so, not quietly run all.
+function cmpResolveSingle() {
+  if (cmpScope !== 'all') return '';
+  if (cmpSingleTicker) return cmpSingleTicker;
+  var q = $('cmp-search').value.trim().toLowerCase();
+  if (!q) return '';
+  var hit = cmpAllCompanies.filter(function (c) {
+    return c.ticker.toLowerCase().indexOf(q) > -1 || c.name_en.toLowerCase().indexOf(q) > -1;
+  })[0];
+  if (hit) { cmpPickSingle(hit.ticker); return hit.ticker; }
+  return null;
+}
+$('cmp-search').oninput = function () {
+  if (cmpScope === 'mine') { cmpRenderPills(); return; }
+  cmpSingleTicker = ''; cmpCmdIndex = 0;
+  var q = $('cmp-search').value.trim().toLowerCase();
+  if (!q) { $('cmp-search-results').style.display = 'none'; cmpRenderScopeSummary(); return; }
+  var hits = cmpAllCompanies.filter(function (c) {
+    return c.ticker.toLowerCase().indexOf(q) > -1 || c.name_en.toLowerCase().indexOf(q) > -1;
+  }).slice(0, 4);
+  $('cmp-search-results').style.display = hits.length ? 'block' : 'none';
+  $('cmp-search-results').innerHTML = hits.map(function (r) {
+    return '<div class="cmd-row" data-t="' + r.ticker + '"><span><b>' + r.ticker + '</b> ' + r.name_en + '</span></div>';
+  }).join('');
+  cmpCmdHighlight();
+  Array.prototype.forEach.call($('cmp-search-results').querySelectorAll('.cmd-row'), function (el, i) {
+    el.onmouseenter = function () { cmpCmdIndex = i; cmpCmdHighlight(); };
+    el.onclick = function () { cmpPickSingle(el.getAttribute('data-t')); };
+  });
+  cmpRenderScopeSummary();
+};
+$('cmp-search').addEventListener('keydown', function (ev) {
+  if (cmpScope !== 'all') return;
+  var rows = $('cmp-search-results').querySelectorAll('.cmd-row[data-t]');
+  if (ev.key === 'ArrowDown' && rows.length) { ev.preventDefault(); cmpCmdIndex = (cmpCmdIndex + 1) % rows.length; cmpCmdHighlight(); }
+  else if (ev.key === 'ArrowUp' && rows.length) { ev.preventDefault(); cmpCmdIndex = (cmpCmdIndex - 1 + rows.length) % rows.length; cmpCmdHighlight(); }
+  else if (ev.key === 'Enter') { ev.preventDefault(); var pick = rows[cmpCmdIndex] || rows[0]; if (pick) pick.click(); }
+  else if (ev.key === 'Escape') { $('cmp-search').value = ''; $('cmp-search-results').style.display = 'none'; cmpSingleTicker = ''; cmpRenderScopeSummary(); }
+});
+$('cal-prev').onclick = function () { cmpMonth.m--; if (cmpMonth.m < 0) { cmpMonth.m = 11; cmpMonth.y--; } renderCalendar(); };
+$('cal-next').onclick = function () { cmpMonth.m++; if (cmpMonth.m > 11) { cmpMonth.m = 0; cmpMonth.y++; } renderCalendar(); };
+$('cal-title').onclick = function () { cmpNavMode = cmpNavMode === 'days' ? 'months' : 'days'; renderCalendar(); };
+$('cmp-hero-a').onclick = function () { cmpSetTarget('a'); };
+$('cmp-hero-vs').onclick = function () { cmpSetTarget('b'); };
+// back to automatic: drop the hand-picked B and re-derive the stretch right before A
+$('cmp-b-auto').onclick = function () {
+  cmpBManual = false; cmpPending = null; cmpTarget = 'a';
+  cmpDeriveB(); renderPeriods(); cmpPaintRange();
+};
+$('cmp-clear').onclick = function () {
+  cmpPA = { start: null, end: null }; cmpPB = { start: null, end: null }; cmpPending = null;
+  cmpBManual = false; cmpTarget = 'a';
+  $('cmp').innerHTML = ''; renderPeriods(); renderCalendar(); renderSuggestions();
+};
+$('cmp-run').onclick = function () {
+  if (!cmpPA.start || !cmpPB.start) return;
+  var ticker = cmpScope === 'all' ? cmpResolveSingle() : ''; // "mine" scope filters client-side below
+  if (ticker === null) {
+    $('cmp').innerHTML = '<p class="mut" style="padding:20px"></p>';
+    $('cmp').firstChild.textContent = 'No stock matches "' + $('cmp-search').value.trim() +
+      '". Pick one from the list, or clear the box to compare all stocks.';
+    return;
+  }
+  $('cmp').innerHTML = loadingHTML(true);
+  // period 1 must be the EARLIER window: compare_periods returns close_2 - close_1 over close_1,
+  // so sending the picked range as period 1 inverts the sign and divides by the wrong baseline.
+  // This order also matches excel.ts, which puts the earlier window in its first column.
+  api('compare', { s1: cmpPB.start, e1: cmpPB.end, s2: cmpPA.start, e2: cmpPA.end, ticker: ticker }).then(function (rows) {
+    if (cmpScope === 'mine') rows = rows.filter(function (r) { return cmpPicked.indexOf(r.ticker) > -1; });
+    if (!rows.length) { $('cmp').innerHTML = '<p class="mut" style="padding:20px">No data for these stocks in both periods.</p>'; return; }
+    var h = '<div class="cmp-results-head"><span class="scope-count" style="margin-left:0">' + rows.length + ' STOCK' + (rows.length === 1 ? '' : 'S') + '</span>' +
+      '<button class="btn-inline" id="excel-cmp">DOWNLOAD EXCEL</button></div>';
+    // header row: same flex geometry as .cmp-row so the labels sit over their own numbers.
+    // columns are named by the real periods (earlier first), the way the Excel sheet names them.
+    h += '<div class="cmp-row cmp-head"><div class="main">STOCK</div>' +
+      '<div class="cell">CLOSE<span class="per">' + cmpFmtHuman(cmpPB).toUpperCase() + '</span></div>' +
+      '<div class="cell">CLOSE<span class="per">' + cmpFmtHuman(cmpPA).toUpperCase() + '</span></div>' +
+      '<div class="cell">CHANGE</div><div class="cell">CHANGE %</div></div>';
+    h += rows.map(function (r) {
+      return '<div class="cmp-row"><div class="main"><span class="ticker">' + r.ticker + '</span><div class="sub">' + r.name_en + '</div></div>' +
+        '<div class="cell">' + fmt(r.close_1) + '</div><div class="cell">' + fmt(r.close_2) + '</div>' +
+        '<div class="cell ' + cls(r.change) + '">' + sign(r.change) + '</div>' +
+        '<div class="cell ' + cls(r.change_pct) + '">' + sign(r.change_pct, 2) + '%</div></div>';
+    }).join('');
+    $('cmp').innerHTML = h;
+    $('excel-cmp').onclick = function () { dlExcel('start=' + cmpPA.start + '&end=' + cmpPA.end + '&cs=' + cmpPB.start + '&ce=' + cmpPB.end, 'msx-' + cmpPA.end + '.xlsx'); };
+  }).catch(function () {
+    $('cmp').innerHTML = '<p class="mut" style="padding:20px">Could not load comparison — check your connection and try again.</p>';
+  });
+};
+
+function loadWeeks() {
+  if (cmpInit) return Promise.resolve();
+  cmpInit = true;
+  var today = new Date(cmpToday() + 'T00:00:00Z');
+  cmpMonth = { y: today.getUTCFullYear(), m: today.getUTCMonth() };
+  return api('companies').then(function (cs) {
+    cmpAllCompanies = cs;
+    cmpSetScope('all');
+    renderPeriods(); renderCalendar(); renderSuggestions();
+    $('cmp-cal-loading').classList.remove('on');
+  }).catch(function () {
+    $('cmp').innerHTML = '<p class="mut" style="padding:20px">Could not load — check your connection and try again.</p>';
+    $('cmp-cal-loading').classList.remove('on');
+  });
+}
+
+// ---------- charts ----------
+var chartsInit = false;
+var currentView = 'price';
+function initCharts() {
+  if (!chartsInit) {
+    chartsInit = true;
+    chPicker = makeTickerPicker($('ch-tpick'), { allowAll: false, defaultScope: 'mine' });
+    $('ch-ticker').onchange = drawChart; $('ch-days').onchange = drawChart;
+
+    // duration pills for Compare mine — same underline style as the price chart's, driving
+    // the hidden #ch-days value store so drawChart keeps reading it unchanged
+    Array.prototype.forEach.call($('ch-days-pills').children, function (btn) {
+      btn.onclick = function () {
+        Array.prototype.forEach.call($('ch-days-pills').children, function (b) { b.classList.toggle('on', b === btn); });
+        $('ch-days').value = btn.getAttribute('data-days');
+        drawChart();
+      };
+    });
+
+    Array.prototype.forEach.call($('ch-view').children, function (btn) {
+      btn.onclick = function () {
+        if (btn.getAttribute('data-view') === currentView) return;
+        Array.prototype.forEach.call($('ch-view').children, function (b) { b.classList.toggle('on', b === btn); });
+        currentView = btn.getAttribute('data-view');
+        $('ch-days-pills').style.display = currentView === 'cmpmine' ? 'flex' : 'none';
+        drawChart();
+      };
+    });
+    Array.prototype.forEach.call($('kc-type-group').children, function (btn) {
+      btn.onclick = function () {
+        Array.prototype.forEach.call($('kc-type-group').children, function (b) { b.classList.toggle('on', b === btn); });
+        kcCandleType = btn.getAttribute('data-kctype');
+        if (kc) kc.setStyles(kcThemeStyles());
+      };
+    });
+    Array.prototype.forEach.call($('kc-draw-group').children, function (btn) {
+      if (btn.id === 'kc-erase') { btn.onclick = function () { if (kc) kc.removeOverlay(); }; return; }
+      btn.onclick = function () { if (kc) kc.createOverlay(btn.getAttribute('data-overlay')); };
+    });
+    Array.prototype.forEach.call($('kc-dur-group').children, function (btn) {
+      btn.onclick = function () {
+        if (btn.classList.contains('on')) return;
+        Array.prototype.forEach.call($('kc-dur-group').children, function (b) { b.classList.toggle('on', b === btn); });
+        kcDays = Number(btn.getAttribute('data-days'));
+        if (kc) kc.resetData();
+      };
+    });
+
+    Promise.all([api('companies'), chPicker.ready()]).then(function (r) {
+      var cs = r[0], mine = r[1];
+      chPicker.setAllList(cs);
+      var first = mine && mine.length ? mine[0] : (cs.length ? cs[0] : null);
+      if (first) chPicker.setSelected(first.ticker, first.name_en);
+      drawChart();
+    }).catch(chartLoadError);
+  } else drawChart();
+}
+// identity items -> fixed categorical order; beyond 8 slices, fold the rest into "Other"
+// Plotly.newPlot only purges a div it has already drawn into — on a div whose current content
+// came from a plain innerHTML write (our loading dots), it appends instead of replacing. Always
+// clear first so switching straight from the loading state never leaves it behind the real chart.
+// content of the custom hover tip, per trace kind (pie slice / bar / indexed line)
+function chartTipHtml(p) {
+  var t = p.data.type;
+  if (t === 'pie') {
+    // p.percent isn't reliably present on real pie hovers — derive it from the slice values
+    var totalV = (p.data.values || []).reduce(function (a, b) { return a + Number(b || 0); }, 0);
+    var pct = totalV ? (Number(p.value) / totalV * 100) : 0;
+    return '<div class="tip-lbl">' + p.label + (p.customdata ? ' · ' + p.customdata : '') + '</div>'
+      + '<div class="tip-val">OMR ' + fmt(p.value, 3) + '<span class="tip-pct">' + pct.toFixed(1) + '%</span></div>';
+  }
+  if (t === 'bar') {
+    return '<div class="tip-lbl">' + p.x + '</div><div class="tip-val">' + (p.y >= 0 ? '+' : '') + Number(p.y).toFixed(2) + '%</div>';
+  }
+  return '<div class="tip-lbl">' + (p.data.name || p.x) + '</div><div class="tip-val">' + Number(p.y).toFixed(1) + '<span class="tip-pct">' + p.x + '</span></div>';
+}
+// wire the fade-in tip to a freshly-drawn graph; re-drawable so re-bind each time
+function wireChartTip(gd) {
+  var tip = $('chart-tip'), tipTimer = null;
+  if (gd.removeAllListeners) { gd.removeAllListeners('plotly_hover'); gd.removeAllListeners('plotly_unhover'); }
+  gd.on('plotly_hover', function (ev) {
+    var p = ev.points && ev.points[0]; if (!p) return;
+    clearTimeout(tipTimer);
+    tip.innerHTML = chartTipHtml(p);
+    // match the left rule + percent to the mark being hovered (orange slice -> orange, etc.)
+    var col = p.color || (p.data.line && p.data.line.color) || cssVar('--accent');
+    tip.style.borderLeftColor = col;
+    var pctEl = tip.querySelector('.tip-pct'); if (pctEl) pctEl.style.color = col;
+    var wrap = $('chart-wrap').getBoundingClientRect();
+    var tw = tip.offsetWidth, th = tip.offsetHeight;
+    if (p.data.type === 'pie') {
+      // grow a leader line out from the slice, then dock the tip just past its far end (with a gap)
+      // so the popup sits clear of the donut — the line and tip share the slice color
+      var end = showHoverLeader(gd, p), gap = 12;
+      if (end) {
+        var left = end.right ? end.x + gap : end.x - tw - gap;
+        var top = end.y - th / 2;
+        tip.style.left = Math.max(4, Math.min(left, wrap.width - tw - 4)) + 'px';
+        tip.style.top = Math.max(4, Math.min(top, wrap.height - th - 4)) + 'px';
+      }
+      tipTimer = setTimeout(function () { tip.classList.add('on'); }, 180); // let the line grow first
+    } else {
+      var x = ev.event ? ev.event.clientX - wrap.left : wrap.width / 2;
+      var y = ev.event ? ev.event.clientY - wrap.top : wrap.height / 2;
+      tip.style.left = Math.max(4, Math.min(x + 14, wrap.width - tw - 4)) + 'px';
+      tip.style.top = Math.max(4, y - th - 8) + 'px';
+      tip.classList.add('on');
+    }
+  });
+  gd.on('plotly_unhover', function () {
+    clearTimeout(tipTimer);
+    tip.classList.remove('on');
+    var lead = $('pie-leaders'); if (lead) lead.remove();
+  });
+}
+function plotChart(traces, layout, opts) {
+  $('chart').innerHTML = '';
+  $('chart-tip').classList.remove('on');
+  var oldLeaders = $('pie-leaders'); if (oldLeaders) oldLeaders.remove();
+  // suppress Plotly's native (dated) hover box; the custom fade-in tip carries the content
+  traces.forEach(function (t) { t.hoverinfo = 'none'; if (t.hovertemplate) delete t.hovertemplate; });
+  return Plotly.newPlot('chart', traces, layout, opts).then(function (gd) { wireChartTip(gd); return gd; });
+}
+
+// Donut geometry from the rendered pie (center + outer radius off the pielayer bbox), mapped into
+// chart-wrap pixel coords so an overlay can sit on top of it.
+var SVGNS = 'http://www.w3.org/2000/svg';
+function pieGeom(gd) {
+  var wrap = $('chart-wrap'), pie = gd.querySelector('g.pielayer'), mainSvg = gd.querySelector('svg.main-svg');
+  if (!pie || !mainSvg) return null;
+  var bb = pie.getBBox(); if (!bb.width || !bb.height) return null;
+  var wr = wrap.getBoundingClientRect(), sr = mainSvg.getBoundingClientRect();
+  return { cx: bb.x + bb.width / 2 + (sr.left - wr.left), cy: bb.y + bb.height / 2 + (sr.top - wr.top), r: Math.min(bb.width, bb.height) / 2 };
+}
+// One hover-only leader line for the slice under the cursor: a dot on the ring, an elbow out, then
+// a short horizontal run — drawn in the slice's own color and grown in with a stroke-dash sweep.
+// Returns the far end + side so the tip can dock past it with a gap.
+function showHoverLeader(gd, p) {
+  var g = pieGeom(gd); if (!g) return null;
+  var vals = p.data.values || [], total = vals.reduce(function (a, b) { return a + Number(b || 0); }, 0);
+  if (!total) return null;
+  var acc = 0; for (var i = 0; i < p.pointNumber; i++) acc += Number(vals[i] || 0);
+  var mid = (acc + Number(vals[p.pointNumber] || 0) / 2) / total;
+  var ang = mid * Math.PI * 2, sin = Math.sin(ang), cos = Math.cos(ang), right = sin >= 0; // clockwise from top
+  var col = p.color || cssVar('--accent');
+  var p1x = g.cx + g.r * sin, p1y = g.cy - g.r * cos;             // point on the ring
+  var e = g.r + 18, p2x = g.cx + e * sin, p2y = g.cy - e * cos;    // elbow out radially
+  var p3x = p2x + (right ? 42 : -42), p3y = p2y;                   // horizontal run outward
+  var old = $('pie-leaders'); if (old) old.remove();
+  var svg = document.createElementNS(SVGNS, 'svg');
+  svg.setAttribute('id', 'pie-leaders');
+  svg.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:4;overflow:visible';
+  var poly = document.createElementNS(SVGNS, 'polyline');
+  poly.setAttribute('points', p1x + ',' + p1y + ' ' + p2x + ',' + p2y + ' ' + p3x + ',' + p3y);
+  poly.setAttribute('fill', 'none'); poly.setAttribute('stroke', col); poly.setAttribute('stroke-width', '1.5'); poly.setAttribute('stroke-linejoin', 'round');
+  var dot = document.createElementNS(SVGNS, 'circle');
+  dot.setAttribute('cx', p1x); dot.setAttribute('cy', p1y); dot.setAttribute('r', '2.5'); dot.setAttribute('fill', col);
+  svg.appendChild(poly); svg.appendChild(dot); $('chart-wrap').appendChild(svg);
+  var len = poly.getTotalLength();                                 // grow the line out from the ring
+  poly.style.strokeDasharray = len; poly.style.strokeDashoffset = len;
+  poly.getBoundingClientRect();                                    // force reflow so the transition runs
+  poly.style.transition = 'stroke-dashoffset .22s ease-out'; poly.style.strokeDashoffset = '0';
+  return { x: p3x, y: p3y, right: right };
+}
+
+function hexToRgba(hex, a) {
+  var n = parseInt(hex.slice(1), 16);
+  return 'rgba(' + [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(',') + ',' + a + ')';
+}
+// day-over-day direction coloring for the Plotly-only views
+function dirColors(closes, opacity) {
+  var good = cssVar('--good'), bad = cssVar('--bad');
+  if (opacity == null) return closes.map(function (c, i) { return i === 0 || c >= closes[i - 1] ? good : bad; });
+  return closes.map(function (c, i) { return hexToRgba(i === 0 || c >= closes[i - 1] ? good : bad, opacity); });
+}
+
+// warm, clay-anchored categorical ramp for the portfolio views — a wide set of tones that
+// harmonize with the orange/clay accent (ambers, rust, chestnut, peach) plus a couple of
+// cooler complements (teal/sage — orange's actual complement) so many slices stay distinct
+// and on-brand instead of Plotly's cold rainbow.
+function clayRamp() {
+  return [
+    cssVar('--accent'), // clay / terracotta
+    '#d9773f',          // orange
+    '#c98500',          // amber
+    '#4f7d78',          // muted teal (complement of orange)
+    '#a8352a',          // brick red
+    '#e0a94e',          // gold
+    '#8a4b2f',          // chestnut
+    '#6f8f5f',          // sage / olive
+    '#c2603f',          // burnt sienna
+    '#d99a6c',          // peach
+    '#7a5230',          // coffee
+    '#9c6b3f',          // bronze
+  ];
+}
+// shared header for the portfolio (non-price) views: same value/change/name look as the
+// price chart, so the whole Charts tab reads as one design. tone colors the big number.
+function setChartHead(o) {
+  if (o.kicker != null) $('ch-kicker').textContent = o.kicker;
+  var v = $('ch-bd-value');
+  v.textContent = o.value != null ? o.value : '';
+  v.style.color = o.tone === 'up' ? cssVar('--good') : o.tone === 'down' ? cssVar('--bad') : '';
+  var c = $('ch-bd-change');
+  c.textContent = o.sub || '';
+  c.style.color = cssVar('--muted');
+  $('ch-bd-name').textContent = o.name || '';
+}
+
+function chartLoadError() {
+  $('chart').innerHTML = '';
+  $('ch-note').textContent = 'Could not load chart data — check your connection and try again.';
+}
+
+// click-through: jump from a portfolio view (donut slice / today bar) into that company's price chart
+function chartGoToPrice(ticker, label) {
+  chPicker.setSelected(ticker, label);
+  currentView = 'price';
+  Array.prototype.forEach.call($('ch-view').children, function (b) { b.classList.toggle('on', b.getAttribute('data-view') === 'price'); });
+  $('ch-days-pills').style.display = 'none';
+  drawChart();
+}
+
+function drawChart() {
+  var t = $('ch-ticker').value, days = $('ch-days').value;
+  $('ch-note').textContent = '';
+  var lead = $('pie-leaders'); if (lead) lead.remove(); // drop any donut overlay before switching views
+  $('ch-tpick').style.display = currentView === 'price' ? 'flex' : 'none'; // picker picks one stock — price view only
+  $('ch-price-view').style.display = currentView === 'price' ? 'block' : 'none';
+  $('ch-bd-head').style.display = currentView === 'price' ? 'none' : 'block';
+  $('chart').style.display = currentView === 'price' ? 'none' : 'block';
+  if (currentView === 'price') { loadPriceView(t); return; }
+  $('chart').innerHTML = loadingHTML();
+
+  if (currentView === 'bar') {
+    var viewBar = currentView;
+    api('home').then(function (d) {
+      if (currentView !== viewBar) return; // a later view switch won this race
+      var rows = (d.watchlist || []).filter(function (r) { return r.quantity != null && r.buy_price != null; });
+      if (!rows.length) { setChartHead({ kicker: 'MY STOCKS TODAY', value: '', name: 'No holdings yet. Add a position first.' }); $('chart').innerHTML = ''; return; }
+      var tv = 0, wsum = 0, up = 0, down = 0;
+      rows.forEach(function (r) { var v = Number(r.value || 0), c = Number(r.change_pct || 0); tv += v; wsum += v * c; if (c > 0) up++; else if (c < 0) down++; });
+      var move = tv ? wsum / tv : 0;
+      setChartHead({ kicker: 'MY STOCKS TODAY', value: (move >= 0 ? '+' : '') + move.toFixed(2) + '%', tone: move > 0 ? 'up' : move < 0 ? 'down' : 'flat',
+        sub: up + ' up · ' + down + ' down', name: 'Today across your holdings' });
+      var nameOf = {}; rows.forEach(function (r) { nameOf[r.ticker] = r.name_en; });
+      plotChart([{ x: rows.map(function (r) { return r.ticker; }), y: rows.map(function (r) { return Number(r.change_pct || 0); }),
+        type: 'bar', marker: { color: rows.map(function (r) { return r.change_pct >= 0 ? cssVar('--good') : cssVar('--bad'); }) } }],
+        chartLayout({ height: 340, margin: { t: 12, r: 46, b: 40, l: 10 } }), { displayModeBar: false, responsive: true })
+        .then(function (gd) { gd.on('plotly_click', function (ev) { var p = ev.points && ev.points[0]; if (p) chartGoToPrice(p.x, nameOf[p.x]); }); });
+    }).catch(chartLoadError);
+    return;
+  }
+  if (currentView === 'alloc') {
+    var viewAlloc = currentView;
+    api('home').then(function (d) {
+      if (currentView !== viewAlloc) return; // a later view switch won this race
+      var rows = (d.watchlist || []).filter(function (r) { return r.quantity != null && r.buy_price != null && Number(r.value || 0) > 0; });
+      if (!rows.length) { setChartHead({ kicker: 'ALLOCATION', value: '', name: 'No holdings yet. Add a position first.' }); $('chart').innerHTML = ''; return; }
+      // one closed donut: each company owns a clean slice of the whole; sector rides along on
+      // hover + the header count, so it stays one idea instead of two blended rings
+      rows.sort(function (a, b) { return Number(b.value || 0) - Number(a.value || 0); });
+      var total = 0, secSet = {};
+      rows.forEach(function (r) { total += Number(r.value || 0); secSet[r.sector || 'Unclassified'] = 1; });
+      var sectorCount = Object.keys(secSet).length, palette = clayRamp();
+      setChartHead({ kicker: 'ALLOCATION', value: 'OMR ' + fmt(total, total >= 100 ? 0 : 3),
+        sub: rows.length + ' holding' + (rows.length === 1 ? '' : 's') + ' · ' + sectorCount + ' sector' + (sectorCount === 1 ? '' : 's'), name: 'Your portfolio by company' });
+      // native pie text is off — the leader line + label appear only on hover (drawn from the
+      // rendered pie geometry in wireChartTip), so the resting donut stays clean
+      var nameOf = {}; rows.forEach(function (r) { nameOf[r.ticker] = r.name_en; });
+      plotChart([{ type: 'pie', hole: 0.55, sort: false, direction: 'clockwise',
+        labels: rows.map(function (r) { return r.ticker; }),
+        values: rows.map(function (r) { return Number(r.value || 0); }),
+        customdata: rows.map(function (r) { return r.sector || 'Unclassified'; }),
+        marker: { colors: rows.map(function (r, i) { return palette[i % palette.length]; }), line: { color: cssVar('--page'), width: 2 } },
+        textinfo: 'none' }],
+        chartLayout({ height: 440, margin: { t: 20, r: 116, b: 20, l: 116 }, showlegend: false }), { displayModeBar: false, responsive: true })
+        .then(function (gd) { gd.on('plotly_click', function (ev) { var p = ev.points && ev.points[0]; if (p) chartGoToPrice(p.label, nameOf[p.label]); }); });
+    }).catch(chartLoadError);
+    return;
+  }
+  if (currentView === 'cmpmine') {
+    var viewCmp = currentView;
+    api('home').then(function (d) {
+      if (currentView !== viewCmp) return; // a later view switch won this race
+      var rows = (d.watchlist || []).filter(function (r) { return r.quantity != null && r.buy_price != null; });
+      if (!rows.length) { setChartHead({ kicker: 'COMPARE MINE', value: '', name: 'No holdings yet. Add a position first.' }); $('chart').innerHTML = ''; return; }
+      // ohlc doesn't echo the ticker back, but Promise.all preserves order, so series[i] <-> rows[i]
+      return Promise.all(rows.map(function (r) { return api('ohlc', { ticker: r.ticker, days: days }); })).then(function (series) {
+        var traces = [], ramp = clayRamp(), best = null;
+        series.forEach(function (s, i) {
+          if (!s.length) return;
+          var base = s[0].close, perf = base ? (s[s.length - 1].close / base - 1) * 100 : 0;
+          if (!best || perf > best.perf) best = { ticker: rows[i].ticker, perf: perf };
+          traces.push({
+            x: s.map(function (r) { return r.date; }),
+            y: s.map(function (r) { return base ? (r.close / base) * 100 : 100; }),
+            mode: 'lines', name: rows[i].ticker, line: { color: ramp[i % ramp.length], width: 2 },
+          });
+        });
+        var lbl = KC_DUR_LABELS[Number(days)] || 'WINDOW';
+        setChartHead(best
+          ? { kicker: 'COMPARE MINE', value: (best.perf >= 0 ? '+' : '') + best.perf.toFixed(1) + '%', tone: best.perf > 0 ? 'up' : best.perf < 0 ? 'down' : 'flat', sub: best.ticker + ' · best over ' + lbl.toLowerCase(), name: 'Indexed to 100 — higher is better' }
+          : { kicker: 'COMPARE MINE', value: '—', name: 'No price history in this window' });
+        plotChart(traces,
+          chartLayout({ height: 380, margin: { t: 34, r: 46, b: 40, l: 10 }, yaxis: { gridcolor: cssVar('--grid'), side: 'right' }, showlegend: traces.length > 1, legend: { orientation: 'h', x: 0, xanchor: 'left', y: 1.08, yanchor: 'bottom' } }),
+          { displayModeBar: false, responsive: true });
+      });
+    }).catch(chartLoadError);
+  }
+}
+
+// ---------- price chart (KLineCharts — candles/area, volume, and interactive drawing tools) ----------
+var kc = null, kcDays = 90, kcReqId = 0, kcCandleType = 'candle_solid';
+
+function kcThemeStyles() {
+  var grid = cssVar('--grid'), muted = cssVar('--muted'), good = cssVar('--good'), bad = cssVar('--bad'),
+    accent = cssVar('--accent'), page = cssVar('--page'), surface = cssVar('--surface'),
+    border2 = cssVar('--border2'), text2 = cssVar('--text2'), kcFont = "'Figtree', sans-serif";
+  // "Line" isn't a real klinecharts candle type — it's "area" with a transparent fill, so a plain
+  // stroke reads as a line while still reusing the library's own area renderer.
+  var isLine = kcCandleType === 'line';
+  return {
+    grid: { horizontal: { color: grid }, vertical: { color: grid } },
+    candle: {
+      type: isLine ? 'area' : kcCandleType,
+      bar: {
+        upColor: good, downColor: bad, noChangeColor: muted,
+        upBorderColor: good, downBorderColor: bad, noChangeBorderColor: muted,
+        upWickColor: good, downWickColor: bad, noChangeWickColor: muted,
+      },
+      area: {
+        lineColor: accent, lineSize: 2,
+        backgroundColor: isLine
+          ? [{ offset: 0, color: 'transparent' }, { offset: 1, color: 'transparent' }]
+          : [{ offset: 0, color: hexToRgba(accent, .14) }, { offset: 1, color: hexToRgba(accent, 0) }],
+      },
+      priceMark: {
+        last: {
+          show: true, upColor: good, downColor: bad, noChangeColor: muted,
+          line: { show: true, style: 'dashed' }, text: { show: true },
+        },
+      },
+      // standard (background-less) tooltip text lets the price mark's dashed line and axis
+      // ticks show straight through it — 'rect' gives it an opaque backing card so nothing
+      // behind it can bleed into the OHLCV row and make it unreadable.
+      tooltip: {
+        showRule: 'follow_cross', showType: 'rect',
+        rect: { color: surface, borderColor: border2, borderRadius: 8, paddingLeft: 10, paddingRight: 10, paddingTop: 8, paddingBottom: 8 },
+        title: { color: muted, family: kcFont },
+        legend: { color: text2, family: kcFont },
+      },
+    },
+    // the VOL pane's own legend ("VOL(5,10,20)  MA5: ...  MA10: ...") is redundant clutter
+    // at this size — the candle tooltip above already carries the numbers that matter
+    indicator: { tooltip: { showRule: 'none' } },
+    xAxis: { axisLine: { color: grid }, tickText: { color: muted, family: kcFont } },
+    yAxis: { axisLine: { color: grid }, tickText: { color: muted, family: kcFont } },
+    crosshair: {
+      horizontal: { line: { color: muted }, text: { color: page, backgroundColor: muted, family: kcFont } },
+      vertical: { line: { color: muted }, text: { color: page, backgroundColor: muted, family: kcFont } },
+    },
+    // drawing tools: clay lines/handles, and the endpoint axis tags get a readable clay box with
+    // cream text (KLineCharts' default is a hard-to-read blue box) — distinct from the muted crosshair
+    overlay: {
+      point: { color: accent, borderColor: hexToRgba(accent, .3), activeColor: accent, activeBorderColor: hexToRgba(accent, .45) },
+      line: { color: accent },
+      rect: { color: 'transparent', borderColor: accent },
+      polygon: { color: hexToRgba(accent, .12), borderColor: accent },
+      text: { color: page, backgroundColor: accent, borderColor: accent, family: kcFont },
+    },
+  };
+}
+
+// resetData() preserves whatever bar-space (zoom level) was already set — switching to a
+// shorter window (e.g. 3M -> 1W) otherwise leaves a handful of candles stranded in a sliver
+// of the pane with the rest empty. Recompute bar-space to fill the pane every time bars load.
+function kcFitBarSpace(count) {
+  if (!kc || !count) return;
+  var el = document.getElementById('kc-chart');
+  var width = el ? el.clientWidth : 0;
+  if (!width) return;
+  kc.setBarSpace(Math.max(6, Math.min(50, width / count)));
+}
+
+// window label + net move (left) and high/low (right) above the chart — matches the
+// design handoff's readout row, computed straight from the bars already on screen
+// rather than a second fetch (so it always agrees with what's actually drawn).
+var KC_DUR_LABELS = { 7: 'WEEK', 30: 'MONTH', 90: '3 MONTHS', 180: '6 MONTHS', 365: 'YEAR', 9999: 'ALL TIME' };
+function updateKcReadout(bars) {
+  if (!bars.length) { $('kc-readout-window').textContent = ''; $('kc-readout-hilo').textContent = ''; return; }
+  var first = bars[0], last = bars[bars.length - 1];
+  var pct = first.open ? ((last.close - first.open) / first.open) * 100 : null;
+  var hi = Math.max.apply(null, bars.map(function (b) { return b.high; }));
+  var lo = Math.min.apply(null, bars.map(function (b) { return b.low; }));
+  $('kc-readout-window').textContent = 'LAST ' + (KC_DUR_LABELS[kcDays] || (kcDays + ' DAYS')) +
+    (pct != null ? ' · ' + sign(pct, 2) + '% OVER THE WINDOW' : '');
+  $('kc-readout-hilo').textContent = 'HIGH ' + fmt(hi) + ' · LOW ' + fmt(lo);
+}
+function kcGetBars(params) {
+  if (params.type !== 'init') { params.callback([], false); return; }
+  var ticker = params.symbol.ticker, reqId = kcReqId;
+  api('ohlc', { ticker: ticker, days: kcDays }).then(function (rows) {
+    // rapid ticker/theme/duration switches can fire overlapping resetData() calls whose responses
+    // resolve out of order — only the response matching the latest request is allowed to touch anything.
+    if (reqId !== kcReqId) return;
+    var hadGap = rows.some(function (r) { return r.open == null; });
+    var prevClose = null;
+    var bars = rows.map(function (r) {
+      // pre-2026-07-07 MSX history has no recorded open. Anchoring it to today's own close
+      // (the old behavior) makes every one of those bars a zero-height "no change" doji,
+      // rendered in muted gray — effectively invisible next to real candles. Anchoring to
+      // the previous close instead colors them by real day-over-day movement, same as every
+      // change_pct elsewhere in the app (which is already close-vs-prev-close, not vs-open).
+      var open = r.open != null ? r.open : (prevClose != null ? prevClose : r.close);
+      var high = r.high != null ? Math.max(r.high, open) : Math.max(r.close, open);
+      var low = r.low != null ? Math.min(r.low, open) : Math.min(r.close, open);
+      prevClose = r.close;
+      return { timestamp: new Date(r.date + 'T00:00:00Z').getTime(), open: open, high: high, low: low, close: r.close, volume: r.volume };
+    });
+    params.callback(bars, false);
+    kcFitBarSpace(bars.length);
+    updatePriceHeaderFromBars(bars);
+    updateKcReadout(bars);
+    $('ch-note').textContent = hadGap ? 'Some early bars have no recorded open — colored using the previous close (MSX history has no open before 2026-07-07).' : '';
+    $('kc-loading').classList.remove('on');
+  }).catch(function () {
+    if (reqId === kcReqId) { params.callback([], false); chartLoadError(); $('kc-loading').classList.remove('on'); }
+  });
+}
+
+function initKLineChart() {
+  if (kc) return kc;
+  // klinecharts loads from a CDN — on a cold start it may not be parsed yet; bail (caller retries) instead of throwing
+  if (typeof klinecharts === 'undefined' || !klinecharts || !klinecharts.init) return null;
+  kc = klinecharts.init('kc-chart');
+  if (!kc) return null;
+  kc.setStyles(kcThemeStyles());
+  kc.setPeriod({ type: 'day', span: 1 });
+  // bars only — no MA lines drawn over the volume pane (calcParams: [] drops them, see volume.ts's
+  // regenerateFigures; the jagged short-window MAs were unreadable clutter, not a useful signal here)
+  kc.createIndicator({ name: 'VOL', calcParams: [] });
+  kc.setDataLoader({ getBars: kcGetBars });
+  window.addEventListener('resize', function () { if (kc && currentView === 'price') kc.resize(); });
+  return kc;
+}
+
+function updatePriceHeaderFromBars(bars) {
+  var t = $('ch-ticker').value, label = $('ch-ticker').dataset.label || t;
+  $('ch-kicker').textContent = 'CHARTS · ' + t;
+  $('ch-price-name').textContent = label;
+  if (!bars.length) { $('ch-price-value').textContent = '—'; $('ch-price-change').innerHTML = ''; return; }
+  var last = bars[bars.length - 1], prev = bars.length > 1 ? bars[bars.length - 2].close : null;
+  var chg = prev != null ? last.close - prev : null, chgPct = prev ? (chg / prev) * 100 : null;
+  $('ch-price-value').textContent = fmt(last.close);
+  $('ch-price-change').className = 'hero-delta ' + (chg != null ? cls(chg) : '');
+  $('ch-price-change').textContent = chg != null ? sign(chg) + ' · ' + sign(chgPct, 2) + '%' : '';
+}
+
+function loadReturnsRow(ticker) {
+  var reqId = kcReqId;
+  api('ohlc', { ticker: ticker, days: 400 }).then(function (rows) {
+    if (reqId !== kcReqId) return; // superseded by a later request
+    if (!rows.length) { $('ch-returns').innerHTML = ''; return; }
+    var last = rows[rows.length - 1], lastMs = new Date(last.date + 'T00:00:00Z').getTime();
+    var windows = [['1 Day', 1], ['1 Week', 7], ['1 Month', 30], ['3 Months', 90], ['6 Months', 180], ['1 Year', 365]];
+    $('ch-returns').innerHTML = windows.map(function (w) {
+      var targetMs = lastMs - w[1] * 86400000, base = null;
+      for (var i = rows.length - 1; i >= 0; i--) {
+        if (new Date(rows[i].date + 'T00:00:00Z').getTime() <= targetMs) { base = rows[i]; break; }
+      }
+      if (!base) base = rows[0];
+      var pct = base.close ? ((last.close - base.close) / base.close) * 100 : null;
+      return '<div class="ret"><div class="lbl">' + w[0] + '</div><div class="val ' + (pct == null ? '' : cls(pct)) +
+        '">' + (pct == null ? '—' : sign(pct, 2) + '%') + '</div></div>';
+    }).join('');
+  }).catch(function () { if (reqId === kcReqId) $('ch-returns').innerHTML = ''; });
+}
+
+function loadPriceView(t, attempt) {
+  if (!t) { $('kc-loading').classList.remove('on'); return; } // no stock to show — don't spin forever
+  $('kc-loading').classList.add('on');   // show loading before init so a cold start never shows a blank/white pane
+  var chart = initKLineChart();
+  if (!chart) {
+    // CDN lib not ready yet on a cold start — keep the loading overlay up and retry briefly (~5s cap)
+    var n = attempt || 0;
+    if (typeof klinecharts === 'undefined' && n < 25) { setTimeout(function () { loadPriceView(t, n + 1); }, 200); return; }
+    $('kc-loading').classList.remove('on'); chartLoadError(); return;
+  }
+  kcReqId++;
+  chart.setStyles(kcThemeStyles());
+  chart.resize();
+  chart.setSymbol({ ticker: t, pricePrecision: 3, volumePrecision: 0 });
+  chart.resetData();
+  loadReturnsRow(t);
+}
+
+loadHome();
+loadAppSettings();
+renderConn();
+flushQueue(); // replay anything left queued from a previous session
+</script>
+</body>
+</html>
