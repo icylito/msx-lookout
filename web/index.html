@@ -1620,7 +1620,7 @@ function checkForAppUpdate(manual) {
       $('update-banner').classList.add('on');
     });
   }).catch(function () {
-    if (manual) { $('check-app-update').disabled = false; appUpdateStatus('Could not check for updates — check your connection.'); }
+    if (manual) { $('check-app-update').disabled = false; appUpdateStatus('Could not check for latest update check your connection.'); }
   });
 }
 $('check-app-update').onclick = function () { checkForAppUpdate(true); };
