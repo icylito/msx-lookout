@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600" font-family="Segoe UI, Arial, sans-serif">
+  <title>How MSX Lookout works — daily data flow</title>
+  <rect x="0" y="0" width="900" height="600" fill="#0a0a0a"/>
+  <defs>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#55534d"/>
+    </marker>
+  </defs>
+
+  <!-- MSX.om -->
+  <rect x="330" y="20" width="240" height="64" rx="14" fill="#1a1a19" stroke="#3987e5" stroke-width="1.5"/>
+  <text x="450" y="48" font-size="15" font-weight="700" fill="#ffffff" text-anchor="middle">MSX.om</text>
+  <text x="450" y="68" font-size="11.5" fill="#898781" text-anchor="middle">official exchange data</text>
+
+  <line x1="450" y1="84" x2="450" y2="114" stroke="#55534d" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Ingest -->
+  <rect x="300" y="118" width="300" height="86" rx="14" fill="#1a1a19" stroke="#217346" stroke-width="1.5"/>
+  <text x="450" y="146" font-size="15" font-weight="700" fill="#ffffff" text-anchor="middle">Ingest job</text>
+  <text x="450" y="166" font-size="11.5" fill="#898781" text-anchor="middle">Supabase Edge Function</text>
+  <text x="450" y="182" font-size="11.5" fill="#898781" text-anchor="middle">5:00 PM Sun-Thu, plus catch-up</text>
+
+  <line x1="450" y1="204" x2="450" y2="234" stroke="#55534d" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Database -->
+  <rect x="290" y="238" width="320" height="86" rx="14" fill="#1a1a19" stroke="#3a3a37" stroke-width="1.5"/>
+  <text x="450" y="266" font-size="15" font-weight="700" fill="#ffffff" text-anchor="middle">Database (Supabase Postgres)</text>
+  <text x="450" y="286" font-size="11.5" fill="#898781" text-anchor="middle">prices - companies - watchlist - alerts</text>
+  <text x="450" y="302" font-size="11.5" fill="#898781" text-anchor="middle">append-only: nothing ever overwritten</text>
+
+  <!-- fan out -->
+  <line x1="450" y1="324" x2="175" y2="352" stroke="#55534d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="450" y1="324" x2="450" y2="352" stroke="#55534d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="450" y1="324" x2="725" y2="352" stroke="#55534d" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Web App -->
+  <rect x="50" y="356" width="250" height="90" rx="14" fill="#1a1a19" stroke="#3987e5" stroke-width="1.5"/>
+  <text x="175" y="384" font-size="14.5" font-weight="700" fill="#ffffff" text-anchor="middle">Web App</text>
+  <text x="175" y="404" font-size="11.5" fill="#898781" text-anchor="middle">search - watchlist - charts</text>
+  <text x="175" y="420" font-size="11.5" fill="#898781" text-anchor="middle">Excel export</text>
+
+  <!-- Daily Digest -->
+  <rect x="325" y="356" width="250" height="90" rx="14" fill="#1a1a19" stroke="#217346" stroke-width="1.5"/>
+  <text x="450" y="384" font-size="14.5" font-weight="700" fill="#ffffff" text-anchor="middle">Daily Digest Email</text>
+  <text x="450" y="404" font-size="11.5" fill="#898781" text-anchor="middle">top gainers / losers</text>
+  <text x="450" y="420" font-size="11.5" fill="#898781" text-anchor="middle">Excel snapshot attached</text>
+
+  <!-- Price Alerts -->
+  <rect x="600" y="356" width="250" height="90" rx="14" fill="#1a1a19" stroke="#c98500" stroke-width="1.5"/>
+  <text x="725" y="384" font-size="14.5" font-weight="700" fill="#ffffff" text-anchor="middle">Price Alerts</text>
+  <text x="725" y="404" font-size="11.5" fill="#898781" text-anchor="middle">email when a threshold</text>
+  <text x="725" y="420" font-size="11.5" fill="#898781" text-anchor="middle">is crossed, end-of-day</text>
+
+  <!-- converge -->
+  <line x1="175" y1="446" x2="440" y2="516" stroke="#55534d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="450" y1="446" x2="450" y2="516" stroke="#55534d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="725" y1="446" x2="460" y2="516" stroke="#55534d" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- You -->
+  <rect x="330" y="520" width="240" height="64" rx="14" fill="#1a1a19" stroke="#217346" stroke-width="2"/>
+  <text x="450" y="548" font-size="15" font-weight="700" fill="#ffffff" text-anchor="middle">You</text>
+  <text x="450" y="568" font-size="11.5" fill="#898781" text-anchor="middle">phone or laptop browser, and email inbox</text>
+</svg>

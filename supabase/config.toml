@@ -1,0 +1,16 @@
+project_id = "vmgtlszxilzrwcalmtrc"
+
+[functions.app]
+entrypoint = "./functions/app/app.ts"
+
+[functions.ingest]
+entrypoint = "./functions/ingest/ingest.ts"
+
+[functions.refresh]
+entrypoint = "./functions/refresh/refresh.ts"
+
+[functions.digest]
+entrypoint = "./functions/digest/digest.ts"
+
+[functions.backup]
+entrypoint = "./functions/backup/backup.ts"

@@ -1,0 +1,11 @@
+.env
+.env.example
+node_modules/
+*.log
+*.xlsx
+.claude
+.vscode
+src-tauri/target/
+src-tauri/*.key
+src-tauri/*.key.pub
+supabase/.temp/

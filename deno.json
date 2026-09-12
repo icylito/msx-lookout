@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.window"]
+  },
+  "tasks": {
+    "dev": "deno run --allow-net --allow-read jsr:@std/http/file-server web",
+    "check": "deno check seed.ts backfill.ts excel.ts msx-client.ts cadence.ts stockanalysis.ts email.ts supabase/functions/app/app.ts supabase/functions/digest/digest.ts supabase/functions/ingest/ingest.ts supabase/functions/refresh/refresh.ts supabase/functions/backup/backup.ts",
+    "seed": "deno run --allow-net --allow-env --env-file=.env seed.ts",
+    "backfill": "deno run --allow-net --allow-env --env-file=.env backfill.ts",
+    "test": "deno test --allow-env --allow-read msx-client_test.ts cadence_test.ts stockanalysis_test.ts supabase/functions/ingest/rules_test.ts email_test.ts web_invariants_test.ts app_invariants_test.ts"
+  }
+}
