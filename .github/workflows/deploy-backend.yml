@@ -12,17 +12,16 @@ on:
       - "email.ts"
   workflow_dispatch: {}
 
-env:
-  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-  PROJECT_REF: vmgtlszxilzrwcalmtrc
+permissions:
+  contents: read
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: denoland/setup-deno@v2
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: v2.x
 
@@ -35,12 +34,16 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
+    environment: deploy
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: vmgtlszxilzrwcalmtrc
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
         with:
-          version: latest
+          version: 2.117.0
 
       - name: Link project
         run: supabase link --project-ref "$PROJECT_REF" --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
@@ -49,7 +52,7 @@ jobs:
         run: supabase db push --dry-run
 
       - name: Apply pending migrations
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08 # v3.0.2
         with:
           timeout_minutes: 5
           max_attempts: 3
@@ -57,7 +60,7 @@ jobs:
           command: supabase db push
 
       - name: Deploy Edge Functions
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08 # v3.0.2
         with:
           timeout_minutes: 5
           max_attempts: 3
@@ -67,6 +70,8 @@ jobs:
   smoke-test:
     needs: deploy
     runs-on: ubuntu-latest
+    env:
+      PROJECT_REF: vmgtlszxilzrwcalmtrc
     steps:
       - name: Verify the live app API returns real data
         run: |
