@@ -16,8 +16,6 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # pin stable tip at audit
 
-      # Windows copy/paste into GitHub secrets often injects CR, BOM, and
-      # zero-width chars you cannot see. Log counts only — never the values.
       - name: Normalize updater signing key
         shell: pwsh
         env:
@@ -49,7 +47,7 @@ jobs:
           $utf8 = New-Object System.Text.UTF8Encoding $false
           if ($k.StartsWith('untrusted comment:')) {
             $b64 = [Convert]::ToBase64String($utf8.GetBytes($k))
-            Write-Host 'secret: raw minisign, encoded to base64'
+            Write-Host 'normalized key encoding'
           } else {
             $b64 = ($k -replace '\s', '')
             $pad = (4 - ($b64.Length % 4)) % 4
@@ -60,7 +58,7 @@ jobs:
               Write-Error 'decoded key does not start with untrusted comment:'
               exit 1
             }
-            Write-Host 'secret: already base64 of a minisign file'
+            Write-Host 'key encoding ok'
           }
           $path = Join-Path $env:RUNNER_TEMP 'tauri-signing.b64'
           [IO.File]::WriteAllText($path, $b64, $utf8)
