@@ -1,4 +1,4 @@
-// Public JSON API + Excel download. Reads are open; writes need x-ingest-key.
+// Public JSON API + Excel download. Read-only — there is no write path.
 // The page itself is static (web/index.html on GitHub Pages); this serves it cross-origin.
 import { generateExcel } from "./excel.ts";
 import { fetchHistoryDay, isTradingDay, MARKET_NUM, num } from "./msx-client.ts";
@@ -78,22 +78,11 @@ async function fillGapIfStale(ticker: string, lastDate: string | null): Promise<
   return `No trades on MSX in the last 7 days, this stock just hasn't traded.`;
 }
 
-// reads stay public; mutations need the same x-ingest-key as ingest/refresh/digest/backup
-const WRITE_ACTIONS = new Set([
-  "save", "remove", "watch", "unwatch", "save_settings",
-  "list_exports", "export_url", "run_ingest_now", "run_refresh_now",
-]);
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "content-type, x-ingest-key",
+  "Access-Control-Allow-Headers": "content-type",
 };
-
-function isPrivileged(req: Request): boolean {
-  const secret = Deno.env.get("INGEST_SECRET") ?? "";
-  const got = req.headers.get("x-ingest-key") ?? "";
-  return secret.length > 0 && got === secret;
-}
 
 async function rest(path: string, init?: RequestInit) {
   const res = await fetch(`${SB_URL}/rest/v1/${path}`, { ...init, headers: H });
@@ -103,19 +92,6 @@ async function rest(path: string, init?: RequestInit) {
 }
 const rpc = (fn: string, args: Record<string, unknown>) =>
   rest(`rpc/${fn}`, { method: "POST", body: JSON.stringify(args) });
-
-// manual "Update now" trigger from the Updater settings — force:true bypasses the
-// configured-frequency gate those functions otherwise check on every cron tick.
-async function runNow(fn: "ingest" | "refresh") {
-  const res = await fetch(`${SB_URL}/functions/v1/${fn}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-ingest-key": Deno.env.get("INGEST_SECRET")! },
-    body: JSON.stringify({ force: true }),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`${fn}: HTTP ${res.status} ${JSON.stringify(body)}`);
-  return body;
-}
 
 // ---- Storage (exports bucket) ----
 type StorageEntry = { name: string; id: string | null; metadata: { size?: number } | null; created_at: string | null };
@@ -158,7 +134,7 @@ async function storageUpload(path: string, bytes: Uint8Array) {
   }
 }
 
-async function handleData(p: Record<string, string>, privileged = false) {
+async function handleData(p: Record<string, string>) {
   switch (p.action) {
     case "home": {
       const [watchlist, state] = await Promise.all([rpc("watchlist_view", {}), rpc("fallback_state", {})]);
@@ -200,49 +176,6 @@ async function handleData(p: Record<string, string>, privileged = false) {
         name: company[0]?.name_en ?? null, sector: company[0]?.sector ?? null,
       };
     }
-    case "verify":
-      return await rpc("verify_buy", { p_ticker: p.ticker, p_price: Number(p.price), p_date: p.date || null });
-    case "save": {
-      await rest("watchlist", {
-        method: "POST",
-        body: JSON.stringify({
-          ticker: p.ticker, quantity: Number(p.quantity), buy_price: Number(p.buy_price),
-          buy_date: p.buy_date || null, verified: p.verified === "true",
-          verification_source: p.verified === "true" ? "msx history" : null,
-        }),
-      });
-      if (p.alert_condition) {
-        await rest("alerts", {
-          method: "POST",
-          body: JSON.stringify({ ticker: p.ticker, condition: p.alert_condition, threshold_price: Number(p.alert_threshold) }),
-        });
-      }
-      return { ok: true };
-    }
-    case "remove": {
-      const row = await rest(`watchlist?id=eq.${p.id}&select=ticker`);
-      await rest(`watchlist?id=eq.${p.id}`, { method: "DELETE" });
-      const left = await rest(`watchlist?ticker=eq.${row[0].ticker}&select=id`);
-      if (left.length === 0) {
-        await rest(`alerts?ticker=eq.${row[0].ticker}`, { method: "PATCH", body: JSON.stringify({ active: false }) });
-      }
-      return { ok: true };
-    }
-    // lightweight watch (no position) — the detail sheet's watchlist pill, separate from "save" (add a real position)
-    case "watch": {
-      const ticker = p.ticker.toUpperCase();
-      const existing = await rest(`watchlist?ticker=eq.${ticker}&select=id`);
-      if (existing.length === 0) {
-        await rest("watchlist", { method: "POST", body: JSON.stringify({ ticker, quantity: null, buy_price: null }) });
-      }
-      return { ok: true };
-    }
-    case "unwatch": {
-      // only removes watch-only rows (no quantity/buy_price) — a real position must go through "remove"
-      const ticker = p.ticker.toUpperCase();
-      await rest(`watchlist?ticker=eq.${ticker}&quantity=is.null`, { method: "DELETE" });
-      return { ok: true };
-    }
     case "weeks": {
       const out = [];
       for (let i = 0; i < 8; i++) out.push((await rpc("trading_week", { p_offset: i }))[0]);
@@ -269,23 +202,8 @@ async function handleData(p: Record<string, string>, privileged = false) {
       return await rest("companies?select=ticker,name_en&active=eq.true&order=name_en");
     case "get_settings": {
       const row = (await rest("app_settings?id=eq.1"))[0] ?? null;
-      if (row && !privileged) row.digest_email = null;
+      if (row) row.digest_email = null; // private contact info — never served over the public read API
       return row;
-    }
-    case "save_settings": {
-      const patch: Record<string, unknown> = {};
-      for (const k of ["display_name", "digest_email", "price_update_freq", "company_refresh_freq", "digest_freq", "dividends_update_freq"]) {
-        if (p[k] !== undefined) patch[k] = p[k] || null;
-      }
-      // booleans must coerce properly — `false || null` would wrongly null the column
-      for (const k of ["email_master_enabled", "notify_listings", "notify_failures"]) {
-        if (p[k] !== undefined) {
-          const v = p[k] as unknown;
-          patch[k] = v === true || v === "true";
-        }
-      }
-      await rest("app_settings?id=eq.1", { method: "PATCH", body: JSON.stringify(patch) });
-      return { ok: true };
     }
     case "list_exports": {
       const folders = (await storageList("")).filter((f) => f.id === null);
@@ -312,10 +230,6 @@ async function handleData(p: Record<string, string>, privileged = false) {
       }
       return { url: await storageSign(path) };
     }
-    case "run_ingest_now":
-      return await runNow("ingest");
-    case "run_refresh_now":
-      return await runNow("refresh");
     default:
       throw new Error(`unknown action ${p.action}`);
   }
@@ -329,11 +243,7 @@ Deno.serve(async (req) => {
   try {
     if (url.pathname.endsWith("/data") && req.method === "POST") {
       const body = await req.json();
-      const privileged = isPrivileged(req);
-      if (WRITE_ACTIONS.has(body.action) && !privileged) {
-        return Response.json({ error: "forbidden" }, { status: 403, headers: CORS });
-      }
-      return Response.json(await handleData(body, privileged), { headers: CORS });
+      return Response.json(await handleData(body), { headers: CORS });
     }
     if (url.pathname.endsWith("/excel")) {
       const s = url.searchParams;
