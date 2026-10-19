@@ -1,4 +1,4 @@
-import { assert, assertGreater, assertLess } from "jsr:@std/assert@1";
+import { assert, assertEquals, assertGreater, assertLess } from "jsr:@std/assert@1";
 
 // These are the failure stories from 2026-09-08: if the chrome stack, overlay
 // stacking, or tab-switch scroll ever regresses, the same visual bugs come back.
@@ -63,12 +63,10 @@ Deno.test("switching tabs always jumps to the top of the page", () => {
   assert(html.includes("window.scrollTo(0, 0)"));
 });
 
-Deno.test("updater pane shows read-only cadence text, not editable controls", () => {
-  assert(html.includes('id="freq-price-text"'));
-  assert(html.includes('id="freq-company-text"'));
-  assert(html.includes('id="freq-dividends-text"'));
+Deno.test("updater: frequency row and version line have breathing room", () => {
+  assert(html.includes(".settings-group .freq-toggle + .mut"));
   assert(html.includes("#app-update-group #app-version-text"));
-  assert(!html.includes('id="set-updater-save"'), "the updater cadence is no longer editable");
+  assertEquals(cssBlock(".settings-group .freq-toggle + .mut").includes("margin-top"), true);
 });
 
 Deno.test("window close and settings close have different names so a modal dismiss cannot quit the app", () => {
@@ -76,8 +74,13 @@ Deno.test("window close and settings close have different names so a modal dismi
   assert(html.includes('id="settings-close" aria-label="Close settings"'));
 });
 
-Deno.test("the frontend has no write path left — no operator key, no write queue, no mutating actions", () => {
-  for (const dead of ["msx-opkey", "x-ingest-key", "msx-writeq", "apiWrite", "flushQueue", "save_settings", 'id="watch-pill"', "f-save", "run_ingest_now", "run_refresh_now"]) {
-    assert(!html.includes(dead), `${dead} should have been removed — the app is read-only now`);
-  }
+Deno.test("operator key stays on the device and is sent as x-ingest-key, never in save_settings", () => {
+  assert(html.includes('id="set-opkey"'));
+  assert(html.includes('autocomplete="off"'));
+  assert(html.includes("msx-opkey"));
+  assert(html.includes("'x-ingest-key'"));
+  const start = html.indexOf("wireSaveSchedule($('set-general-save')");
+  const payload = html.slice(start, html.indexOf("}, function () {", start));
+  assert(payload.includes("digest_email"));
+  assert(!payload.includes("set-opkey"), "operator key must not go in the save_settings payload");
 });
