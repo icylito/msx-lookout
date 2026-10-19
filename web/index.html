@@ -168,8 +168,29 @@
   .settings-row.on .check { opacity:1; }
   .settings-group { margin-bottom:20px; }
   .settings-group-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; font-weight:600; margin-bottom:6px; }
+  /* notification toggle rows: plain-language label + one-line why on the left, ON/OFF switch on the right */
+  .ntf-row { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:14px 0; border-bottom:1px solid var(--border); }
+  .ntf-row .ntf-txt { flex:1; min-width:0; }
+  .ntf-row .ntf-name { font-size:14px; color:var(--text); }
+  .ntf-row .ntf-why { font-size:12px; color:var(--muted); margin-top:3px; }
+  .ntf-row.off .ntf-name, .ntf-row.off .ntf-why { opacity:.45; }
+  .ntf-switch.cmp-switch { width:78px; height:28px; flex-shrink:0; }
+  .freq-toggle {
+    display:flex; gap:20px; border:none; border-radius:0; overflow:visible; width:fit-content;
+    border-bottom:1px solid var(--border); padding-bottom:1px;
+  }
+  .settings-group .freq-toggle + .mut { margin-top:16px; }
   #app-update-group #app-version-text { margin:6px 0 14px; }
+  #freq-price, #freq-company { gap:22px; }
   #pane-general h3 { margin-bottom:22px; }
+  #pane-general .field:first-of-type { margin-top:0; }
+  .freq-toggle .tpick-opt {
+    padding:5px 0; border:none; border-radius:0; background:transparent; color:var(--muted);
+    font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.12em;
+    box-shadow:inset 0 -1px 0 transparent; transition:color .16s, box-shadow .16s; white-space:nowrap;
+  }
+  .freq-toggle .tpick-opt:hover { color:var(--text); }
+  .freq-toggle .tpick-opt.on { background:transparent; color:var(--text); box-shadow:inset 0 -1px 0 var(--accent); }
   /* ---- Role 2 (committing action): outlined pill, idle = clay, busy = muted, done = green ---- */
   .btn-pill {
     padding:8px 17px; border:1px solid var(--accent); border-radius:999px; background:transparent;
@@ -184,6 +205,12 @@
      .done other committing pills persist. The connection light, not the button, tells you
      whether the save is live on the server yet. Reverts after 1.5s. See CLAUDE.md button roles. */
   .btn-pill.saved { border-color:var(--border2); color:var(--muted); cursor:default; }
+  /* one save for General + Schedule; hidden on panes with nothing to save */
+  #settings-savebar { display:none; align-items:center; justify-content:flex-end; gap:18px; margin-top:auto; padding-top:34px; }
+  #settings-modal.has-save #settings-savebar { display:flex; }
+  #settings-modal.has-save .settings-content { display:flex; flex-direction:column; }
+  #set-save-msg { flex:1; text-align:right; font-size:12px; }
+  #set-save-msg.err { color:var(--bad); }
   /* ---- Role 3 (inline action): bare clay caps ---- */
   .btn-inline {
     padding:0; border:none; background:transparent; font-family:'Figtree', sans-serif; font-weight:600;
@@ -203,6 +230,22 @@
   }
   #offline { background:rgba(201,133,0,.12); color:#e0ab3a; border-color:rgba(201,133,0,.30); }
   #stale   { background:rgba(208,59,59,.12); color:#e67d7d; border-color:rgba(208,59,59,.30); }
+  /* ---- updater row: persistent bottom-of-page manual update control ---- */
+  #upd-row { max-width:760px; margin:56px auto 0; padding:20px 28px 40px; border-top:1px solid var(--border2); }
+  #upd-btn {
+    background:none; border:none; padding:0; cursor:pointer; color:var(--accent);
+    font-family:'Figtree', sans-serif; font-weight:600; font-size:11px; letter-spacing:.13em; text-transform:uppercase;
+  }
+  #upd-btn.done { color:var(--good); } #upd-btn.failed { color:var(--bad); }
+  #upd-btn:disabled { cursor:default; }
+  #upd-sub { font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; color:var(--muted); letter-spacing:.06em; margin-top:5px; text-transform:uppercase; }
+  #upd-bar-track { height:1px; background:var(--border); margin-top:12px; overflow:hidden; }
+  #upd-bar { height:100%; width:0; background:var(--accent); transition:width .35s ease; position:relative; }
+  #upd-bar.shimmer::after {
+    content:''; position:absolute; inset:0; background:linear-gradient(90deg, transparent, rgba(255,255,255,.5), transparent);
+    background-size:200% 100%; animation:upd-shimmer 1.2s linear infinite;
+  }
+  @keyframes upd-shimmer { from { background-position:200% 0; } to { background-position:-200% 0; } }
   @keyframes sync-pulse { 0%, 100% { opacity:.35; transform:scale(.8); } 50% { opacity:1; transform:scale(1); } }
   #update-banner {
     position:fixed; top:14px; left:14px; z-index:15; display:none; align-items:center; gap:10px;
@@ -606,6 +649,8 @@
   .acts { margin:14px 0; padding:14px; background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:12px; }
   .acts a { color:var(--cat-1); }
   .bell { color:#f2b705; }
+  .x { color:var(--muted); cursor:pointer; border:none; background:none; font-size:16px; padding:4px; border-radius:6px; }
+  .x:hover { color:var(--bad); background:rgba(208,59,59,.10); }
   .bar { display:flex; gap:10px; align-items:center; margin:16px 0; flex-wrap:wrap; }
   /* flat, on-brand form controls (matches the search bars) — replaces the old glass boxes */
   select, input[type=date], input[type=number] {
@@ -651,8 +696,10 @@
   .watch-pill {
     display:flex; align-items:center; gap:7px; padding:6px 14px; border-radius:999px; border:1px solid var(--border2);
     background:transparent; color:var(--text2); font-family:'Figtree', sans-serif; font-weight:600; font-size:11px;
-    letter-spacing:.06em; white-space:nowrap;
+    letter-spacing:.06em; cursor:pointer; transition:.15s; white-space:nowrap;
   }
+  .watch-pill:hover { border-color:var(--accent); }
+  .watch-pill:active { transform:scale(.95); }
   .watch-pill.on { border-color:var(--accent); background:rgba(184,92,62,.10); color:var(--accent); }
   .close-x {
     width:32px; height:32px; border-radius:50%; border:1px solid var(--border2); background:transparent; color:var(--text2);
@@ -669,6 +716,32 @@
   .stat-row .lbl { color:var(--muted); font-family:'Figtree', sans-serif; font-weight:600; font-size:10px; letter-spacing:.1em; text-transform:uppercase; }
   .stat-row .val { font-variant-numeric:tabular-nums; font-weight:500; }
   .add-heading { font-family:'Newsreader', serif; font-size:24px; font-weight:500; margin-bottom:6px; }
+  .field-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px 22px; margin:18px 0; }
+  .field { margin:12px 0; } .field label { display:block; font-size:12.5px; color:var(--muted); margin-bottom:5px; }
+  .field input {
+    width:100%; padding:8px 0 9px; font-size:14.5px; color:var(--text); font-variant-numeric:tabular-nums;
+    background:transparent; border:none; border-bottom:1px solid var(--border2); border-radius:0; outline:none; transition:border-color .15s;
+  }
+  .field input:focus { border-bottom-color:var(--accent); }
+  .field input::placeholder { color:var(--muted); }
+  /* buy-date trigger — flat underline like the other fields; opens the clay calendar below */
+  .date-trigger { width:100%; text-align:left; padding:8px 0 9px; font-size:14.5px; color:var(--text);
+    background:transparent; border:none; border-bottom:1px solid var(--border2); cursor:pointer;
+    font-family:'Figtree', sans-serif; font-variant-numeric:tabular-nums; transition:border-color .15s; }
+  .date-trigger:hover, .date-trigger.open { border-bottom-color:var(--accent); }
+  .date-trigger.empty { color:var(--muted); }
+  #f-cal { margin-top:14px; }
+  #verdict { padding:4px 0 4px 14px; border-left:2px solid transparent; font-size:13.5px; margin:14px 0; display:none; }
+  #verdict.ok  { border-left-color:var(--good); color:var(--good); }
+  #verdict.bad { border-left-color:var(--bad); color:var(--bad); }
+  #verdict.mid { border-left-color:var(--accent); color:var(--accent); }
+  #verdict .cand-lead { display:block; margin-bottom:9px; }
+  #verdict .cand-row { display:flex; flex-wrap:wrap; gap:8px; }
+  #verdict .cand { font-size:12px; padding:6px 12px; }
+  #verdict .cand:hover { border-color:var(--accent); color:var(--accent); }
+  #verdict .cand .cand-px { opacity:.6; margin-left:1px; }
+  .alertrow { display:flex; gap:8px; align-items:center; margin:12px 0; flex-wrap:wrap; font-size:14px; color:var(--text2); }
+  .cmp-switch.alert-switch { width:112px; height:26px; flex-shrink:0; }
   #chart { background:transparent; min-height:380px; }
   #chart-wrap { position:relative; }
   /* modern hover tooltip for the portfolio charts — clay left rule + soft layered shadow,
@@ -975,23 +1048,62 @@
     </div>
     <div class="settings-pane" id="pane-general">
       <h3>General</h3>
-      <div class="settings-group-label">Display name</div>
-      <p class="mut" id="gen-name-text">—</p>
-      <div class="settings-group-label" style="margin-top:18px">Digest &amp; alert email</div>
-      <p class="mut" id="gen-email-text">—</p>
-      <p class="mut" style="margin-top:18px">Set from the Supabase project directly — this app is read-only.</p>
+      <div class="field"><label for="set-name">Display name</label><input id="set-name" autocomplete="name" placeholder="Your name"></div>
+      <div class="field" style="margin-top:18px"><label for="set-email">Digest &amp; alert email</label><input id="set-email" type="email" autocomplete="email" placeholder="you@example.com"></div>
+      <p class="mut" style="margin-top:8px">Leave the email blank and no mail is sent.</p>
     </div>
     <div class="settings-pane" id="pane-schedule">
       <h3>Schedule</h3>
-      <div class="settings-group" style="margin-top:0">
-        <div class="settings-group-label" style="margin-bottom:2px">Notifications</div>
-        <p class="mut" id="ntf-master-text">—</p>
-        <p class="mut" id="ntf-listings-text">—</p>
-        <p class="mut" id="ntf-failures-text">—</p>
-        <div class="settings-group-label" style="margin:22px 0 4px">How often the digest email arrives</div>
-        <p class="mut" id="freq-digest-text">—</p>
+      <div class="settings-group">
+        <div class="settings-group-label" style="margin-bottom:2px">Email</div>
+        <div class="ntf-row" id="ntf-master-row">
+          <div class="ntf-txt"><div class="ntf-name">All email notifications</div><div class="ntf-why">Master switch. Turn this off and nothing below ever emails you.</div></div>
+          <button type="button" class="cmp-switch ntf-switch" id="ntf-master" role="switch" aria-checked="true"><span class="knob"></span><span class="opt opt-all">OFF</span><span class="opt opt-mine">ON</span></button>
+        </div>
+        <div class="ntf-row" id="ntf-listings-row">
+          <div class="ntf-txt"><div class="ntf-name">New listings &amp; delistings</div><div class="ntf-why">A heads-up email when a company joins or leaves MSX.</div></div>
+          <button type="button" class="cmp-switch ntf-switch" id="ntf-listings" role="switch" aria-checked="false"><span class="knob"></span><span class="opt opt-all">OFF</span><span class="opt opt-mine">ON</span></button>
+        </div>
+        <div class="ntf-row" id="ntf-failures-row">
+          <div class="ntf-txt"><div class="ntf-name">Update-failure alerts</div><div class="ntf-why">If a scheduled price or company update keeps failing, so staleness is never silent.</div></div>
+          <button type="button" class="cmp-switch ntf-switch" id="ntf-failures" role="switch" aria-checked="true"><span class="knob"></span><span class="opt opt-all">OFF</span><span class="opt opt-mine">ON</span></button>
+        </div>
+        <div class="settings-group-label" style="margin:22px 0 12px">How often the digest email arrives</div>
+        <div class="freq-toggle" id="freq-digest">
+          <button type="button" class="tpick-opt" data-freq="daily">Daily</button>
+          <button type="button" class="tpick-opt" data-freq="weekly">Weekly</button>
+          <button type="button" class="tpick-opt" data-freq="monthly">Monthly</button>
+          <button type="button" class="tpick-opt" data-freq="never">Never</button>
+        </div>
       </div>
-      <p class="mut" style="margin-top:18px">Set from the Supabase project directly — this app is read-only.</p>
+      <div class="settings-group" style="margin-top:30px">
+        <div class="settings-group-label">Price updates</div>
+        <div class="freq-toggle" id="freq-price">
+          <button type="button" class="tpick-opt" data-freq="daily">Daily</button>
+          <button type="button" class="tpick-opt" data-freq="weekly">Weekly</button>
+          <button type="button" class="tpick-opt" data-freq="monthly">Monthly</button>
+        </div>
+        <p class="mut" id="last-price-ingest"></p>
+      </div>
+      <div class="settings-group">
+        <div class="settings-group-label">Company &amp; sector refresh</div>
+        <div class="freq-toggle" id="freq-company">
+          <button type="button" class="tpick-opt" data-freq="daily">Daily</button>
+          <button type="button" class="tpick-opt" data-freq="weekly">Weekly</button>
+          <button type="button" class="tpick-opt" data-freq="monthly">Monthly</button>
+        </div>
+        <p class="mut" id="last-company-refresh"></p>
+      </div>
+      <div class="settings-group">
+        <div class="settings-group-label">Dividends</div>
+        <div class="freq-toggle" id="freq-dividends">
+          <button type="button" class="tpick-opt" data-freq="daily">Daily</button>
+          <button type="button" class="tpick-opt" data-freq="weekly">Weekly</button>
+          <button type="button" class="tpick-opt" data-freq="monthly">Monthly</button>
+          <button type="button" class="tpick-opt" data-freq="never">Never</button>
+        </div>
+        <p class="mut" id="last-dividends-update"></p>
+      </div>
     </div>
     <div class="settings-pane" id="pane-exports">
       <h3>Excel files</h3>
@@ -999,35 +1111,30 @@
     </div>
     <div class="settings-pane" id="pane-updater">
       <h3>Updater</h3>
-      <div class="settings-group">
-        <div class="settings-group-label">Price updates</div>
-        <p class="mut" id="freq-price-text"></p>
-        <p class="mut" id="last-price-ingest"></p>
-      </div>
-      <div class="settings-group">
-        <div class="settings-group-label">Company &amp; sector refresh</div>
-        <p class="mut" id="freq-company-text"></p>
-        <p class="mut" id="last-company-refresh"></p>
-      </div>
-      <div class="settings-group">
-        <div class="settings-group-label">Dividends</div>
-        <p class="mut" id="freq-dividends-text"></p>
-        <p class="mut" id="last-dividends-update"></p>
-      </div>
-      <hr>
+      <p class="mut" id="app-update-web">The desktop app checks for its own updates here. In the browser you always get the latest version.</p>
       <div class="settings-group" id="app-update-group" style="display:none">
         <div class="settings-group-label">Desktop app</div>
         <p class="mut" id="app-version-text">Version —</p>
         <button class="btn-pill" id="check-app-update">CHECK FOR UPDATES</button>
       </div>
     </div>
+    <div id="settings-savebar">
+      <p class="mut" id="set-save-msg" role="status"></p>
+      <button class="btn-pill" id="set-save">SAVE</button>
+    </div>
   </div>
+</div>
+<div id="upd-row">
+  <button id="upd-btn">UPDATE PRICES &amp; COMPANIES</button>
+  <div id="upd-sub"></div>
+  <div id="upd-bar-track"><div id="upd-bar"></div></div>
 </div>
 <script>
 // the Supabase API base
 var API = 'https://vmgtlszxilzrwcalmtrc.supabase.co/functions/v1/app';
 var $ = function (id) { return document.getElementById(id); };
 function dataHeaders() { return { 'Content-Type': 'application/json' }; }
+localStorage.removeItem('msx-opkey'); // the old operator key is no longer used; don't leave it on disk
 var state = null, chPicker = null, myTickerSet = {}, myPositions = [];
 
 // ---------- theme ----------
@@ -1062,6 +1169,7 @@ var appSettings = null;
 function openSettings(pane) {
   $('overlay').style.display = 'block'; $('settings-modal').classList.add('open');
   document.body.classList.add('modal-open');
+  saveMsg('');
   showSettingsPane(pane || 'appearance');
   if (pane === 'exports') loadExports();
 }
@@ -1069,6 +1177,7 @@ function closeSettings() { $('overlay').style.display = 'none'; $('settings-moda
 function showSettingsPane(pane) {
   Array.prototype.forEach.call($('settings-modal').querySelectorAll('.settings-nav'), function (b) { b.classList.toggle('on', b.getAttribute('data-pane') === pane); });
   Array.prototype.forEach.call($('settings-modal').querySelectorAll('.settings-pane'), function (p) { p.classList.toggle('on', p.id === 'pane-' + pane); });
+  $('settings-modal').classList.toggle('has-save', pane === 'general' || pane === 'schedule');
   if (pane === 'exports' && !$('exports-list').getAttribute('data-loaded')) loadExports();
 }
 $('menu-btn').onclick = function () { openSettings('appearance'); };
@@ -1079,20 +1188,19 @@ Array.prototype.forEach.call(document.querySelectorAll('.settings-nav'), functio
 });
 
 function lastRunText(iso) { return iso ? 'Last updated ' + new Date(iso).toLocaleString() : 'Never run yet'; }
-var FREQ_WORD = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', never: 'Never' };
-function freqText(val) { return FREQ_WORD[val] || val; }
 function loadAppSettings() {
   return api('get_settings').then(function (s) {
     appSettings = s || {};
-    $('gen-name-text').textContent = appSettings.display_name || '—';
-    $('gen-email-text').textContent = appSettings.digest_email || '—';
-    $('freq-price-text').textContent = freqText(appSettings.price_update_freq || 'daily');
-    $('freq-company-text').textContent = freqText(appSettings.company_refresh_freq || 'monthly');
-    $('freq-digest-text').textContent = freqText(appSettings.digest_freq || 'daily');
-    $('freq-dividends-text').textContent = freqText(appSettings.dividends_update_freq || 'weekly');
-    $('ntf-master-text').textContent = 'All email notifications: ' + (appSettings.email_master_enabled !== false ? 'on' : 'off');
-    $('ntf-listings-text').textContent = 'New listings & delistings: ' + (appSettings.notify_listings === true ? 'on' : 'off');
-    $('ntf-failures-text').textContent = 'Update-failure alerts: ' + (appSettings.notify_failures !== false ? 'on' : 'off');
+    $('set-name').value = appSettings.display_name || '';
+    $('set-email').value = appSettings.digest_email || '';
+    setFreqUI('freq-price', appSettings.price_update_freq || 'daily');
+    setFreqUI('freq-company', appSettings.company_refresh_freq || 'monthly');
+    setFreqUI('freq-digest', appSettings.digest_freq || 'daily');
+    setFreqUI('freq-dividends', appSettings.dividends_update_freq || 'weekly');
+    setNtf('ntf-master', appSettings.email_master_enabled !== false);
+    setNtf('ntf-listings', appSettings.notify_listings === true);
+    setNtf('ntf-failures', appSettings.notify_failures !== false);
+    reflectMaster();
     $('last-price-ingest').textContent = lastRunText(appSettings.last_price_ingest_at);
     $('last-company-refresh').textContent = lastRunText(appSettings.last_company_refresh_at);
     $('last-dividends-update').textContent = lastRunText(appSettings.last_dividends_update_at);
@@ -1101,6 +1209,79 @@ function loadAppSettings() {
     return appSettings;
   }).catch(function () { appSettings = appSettings || {}; });
 }
+// no-op: the display name now shows in the My Stocks kicker (loadHome), not a separate greeting line
+function setFreqUI(groupId, val) {
+  Array.prototype.forEach.call($(groupId).children, function (b) { b.classList.toggle('on', b.getAttribute('data-freq') === val); });
+}
+Array.prototype.forEach.call(document.querySelectorAll('.freq-toggle, .freq-toggle-wrap'), function (group) {
+  Array.prototype.forEach.call(group.children, function (b) {
+    b.onclick = function () { setFreqUI(group.id, b.getAttribute('data-freq')); };
+  });
+});
+// notification on/off switches (reuse the .cmp-switch visual); master dims the rest when off
+function setNtf(id, on) { $(id).setAttribute('aria-checked', String(!!on)); }
+function ntfOn(id) { return $(id).getAttribute('aria-checked') === 'true'; }
+function reflectMaster() {
+  var master = ntfOn('ntf-master');
+  ['ntf-listings-row', 'ntf-failures-row'].forEach(function (r) { $(r).classList.toggle('off', !master); });
+}
+['ntf-master', 'ntf-listings', 'ntf-failures'].forEach(function (id) {
+  $(id).onclick = function () { setNtf(id, !ntfOn(id)); if (id === 'ntf-master') reflectMaster(); };
+});
+
+// One SAVE for General + Schedule. It goes straight to the server so the button can say what happened:
+// 200 flashes a gray SAVED, a 4xx or 5xx keeps your edits and says why, and only a dead connection
+// falls back to the offline queue (the connection light then shows it as PENDING).
+function freqOf(id, fallback) { var on = $(id).querySelector('.on'); return on ? on.getAttribute('data-freq') : fallback; }
+function settingsPayload() {
+  return {
+    display_name: $('set-name').value.trim(), digest_email: $('set-email').value.trim(),
+    email_master_enabled: ntfOn('ntf-master'), notify_listings: ntfOn('ntf-listings'), notify_failures: ntfOn('ntf-failures'),
+    digest_freq: freqOf('freq-digest', 'daily'),
+    price_update_freq: freqOf('freq-price', 'daily'),
+    company_refresh_freq: freqOf('freq-company', 'monthly'),
+    dividends_update_freq: freqOf('freq-dividends', 'weekly'),
+  };
+}
+function saveMsg(text, isErr) { $('set-save-msg').textContent = text || ''; $('set-save-msg').classList.toggle('err', !!isErr); }
+function saveFailText(status, error) {
+  if (status === 400) return 'Not saved. ' + (error ? error.charAt(0).toUpperCase() + error.slice(1) + '.' : 'The server refused one of the values.');
+  if (status === 404) return 'Not saved. The server does not have this save yet (404). The backend needs a deploy.';
+  if (status >= 500) return 'Not saved. The server hit an error (' + status + '). Your edits are still here, try again in a minute.';
+  return 'Not saved. The server answered ' + status + '.';
+}
+function applySavedSettings(p) {
+  Object.keys(p).forEach(function (k) { appSettings[k] = p[k]; });
+  $('ms-kicker').textContent = 'MY STOCKS' + (p.display_name ? ' · ' + p.display_name.toUpperCase() : '');
+}
+$('set-save').onclick = function () {
+  var btn = $('set-save');
+  if (btn.disabled) return;
+  var p = settingsPayload();
+  if (p.digest_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.digest_email)) {
+    showSettingsPane('general'); saveMsg('Not saved. That email does not look right.', true); $('set-email').focus(); return;
+  }
+  btn.disabled = true; btn.textContent = 'SAVING…'; saveMsg('');
+  fetch(API + '/data', { method: 'POST', headers: dataHeaders(), body: JSON.stringify(Object.assign({ action: 'save_settings' }, p)) })
+    .then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (b) { return { status: r.status, error: b && b.error }; });
+    }, function () { return { status: 0 }; })
+    .then(function (res) {
+      if (res.status === 200) {
+        applySavedSettings(p); setOnline(true);
+        btn.classList.add('saved'); btn.textContent = 'SAVED';
+        setTimeout(function () { btn.disabled = false; btn.classList.remove('saved'); btn.textContent = 'SAVE'; }, 1500);
+        return;
+      }
+      btn.disabled = false; btn.textContent = 'SAVE';
+      if (res.status === 0) {
+        applySavedSettings(p); apiWrite('save_settings', p);
+        saveMsg('Offline. Saved on this device, it will sync when you reconnect.');
+        return;
+      }
+      saveMsg(saveFailText(res.status, res.error), true);
+    });
+};
 
 function loadExports() {
   $('exports-list').setAttribute('data-loaded', '1');
@@ -1126,7 +1307,8 @@ function loadExports() {
       };
     });
   }).catch(function () {
-    $('exports-list').innerHTML = '<p class="mut">Could not load — check your connection.</p>';
+    $('exports-list').removeAttribute('data-loaded');
+    $('exports-list').innerHTML = '<p class="mut">Could not load past exports. Check your connection and open this tab again.</p>';
   });
 }
 
@@ -1173,10 +1355,116 @@ function setHeaderStatus(which, mode, iso) {
 function updateHeaderStatus() {
   setHeaderStatus('prices', 'idle', appSettings && appSettings.last_price_ingest_at);
   setHeaderStatus('companies', 'idle', appSettings && appSettings.last_company_refresh_at);
-  setHeaderStatus('dividends', 'idle', appSettings && appSettings.last_dividends_update_at);
+  // divWarn sticks across the post-run settings reload so a couldn't-refresh stays clay, not green
+  setHeaderStatus('dividends', divWarn ? 'warn' : 'idle', appSettings && appSettings.last_dividends_update_at);
+  if (typeof updPhase !== 'undefined' && updPhase === 'idle') setUpdRow('idle');
+}
+// true after a run where the dividends feed couldn't refresh (source unreachable or a payer went empty)
+var divWarn = false;
+function dividendsRunFailed(dv) {
+  if (!dv) return false;                                 // absent → didn't run this pass
+  if (typeof dv === 'string') return dv.indexOf('error') === 0; // "not due" is fine; "error: …" is not
+  return (dv.failed || 0) > 0 || (dv.suspect || 0) > 0;  // any ticker errored or a payer went suspiciously empty
 }
 
-var connOnline = true; // last known server reachability, set by reads
+// ---------- updater row: idle -> prices -> companies -> done|failed ----------
+// One control runs both jobs together (see design_handoff_price_first/header-status-tags.md:
+// "the run covers prices and companies together"). ingest.ts/refresh.ts now write real
+// {done,total} progress to app_settings as MSX's market batches actually resolve (see
+// setIngestProgress/setRefreshProgress) — polled below while a phase is active, so the
+// bar fills on genuine counts, not a fabricated tick. Falls back to an indeterminate
+// shimmer only for the brief gap before the first poll tick lands.
+var updPhase = 'idle';
+var updPollTimer = null;
+function updIdleSub() {
+  var n = browseRows ? browseRows.length : null;
+  var stamp = appSettings && appSettings.last_price_ingest_at ? fmtStatusDate(appSettings.last_price_ingest_at) : null;
+  return stamp ? 'LAST RUN ' + stamp + (n ? ' · ' + n + ' STOCKS' : '') : 'NEVER RUN YET';
+}
+function setUpdRow(phase, sub, progress) {
+  updPhase = phase;
+  var btn = $('upd-btn'), bar = $('upd-bar');
+  btn.className = phase === 'done' ? 'done' : phase === 'failed' ? 'failed' : '';
+  btn.disabled = phase === 'prices' || phase === 'companies';
+  var hasProgress = progress && progress.total > 0;
+  bar.classList.toggle('shimmer', (phase === 'prices' || phase === 'companies') && !hasProgress);
+  if (phase === 'idle') { btn.textContent = 'UPDATE PRICES & COMPANIES'; bar.style.width = '0'; }
+  else if (phase === 'prices') {
+    btn.textContent = 'UPDATING PRICES' + (hasProgress ? ' ' + progress.done + '/' + progress.total : '') + '…';
+    bar.style.width = (hasProgress ? Math.min(progress.done / progress.total, 1) * 75 : 75) + '%';
+  } else if (phase === 'companies') {
+    btn.textContent = 'UPDATING COMPANIES' + (hasProgress ? ' ' + progress.done + '/' + progress.total : '') + '…';
+    bar.style.width = (hasProgress ? 75 + Math.min(progress.done / progress.total, 1) * 25 : 100) + '%';
+  } else if (phase === 'done') { btn.textContent = 'UP TO DATE'; bar.style.width = '100%'; }
+  else if (phase === 'failed') { btn.textContent = 'RETRY UPDATE'; }
+  // sub is left untouched (undefined) on progress-only poll ticks so it doesn't blank the phase line
+  if (sub !== undefined) $('upd-sub').textContent = sub != null ? sub : (phase === 'idle' ? updIdleSub() : '');
+}
+function updPollProgress() {
+  api('get_settings').then(function (s) {
+    if (!s) return;
+    if (updPhase === 'prices' && s.price_ingest_progress) setUpdRow('prices', undefined, s.price_ingest_progress);
+    else if (updPhase === 'companies' && s.company_refresh_progress) setUpdRow('companies', undefined, s.company_refresh_progress);
+  });
+}
+function startUpdPolling() { stopUpdPolling(); updPollTimer = setInterval(updPollProgress, 1200); }
+function stopUpdPolling() { if (updPollTimer) { clearInterval(updPollTimer); updPollTimer = null; } }
+function runFullUpdate() {
+  if (updPhase === 'prices' || updPhase === 'companies') return;
+  // the bottom updater row + header status lights already narrate prices-then-companies
+  // phase by phase — the floating sync banner said the same thing again on top of it.
+  // dividends are bundled inside run_ingest_now (best-effort) — its light rides the prices phase.
+  divWarn = false;
+  var ingestResult = null, refreshResult = null;
+  setHeaderStatus('prices', 'run'); setHeaderStatus('companies', 'run'); setHeaderStatus('dividends', 'run');
+  setUpdRow('prices', 'Fetching the latest prices from MSX. You can keep browsing.');
+  startUpdPolling();
+  api('run_ingest_now').then(function (r) {
+    ingestResult = r || {};
+    divWarn = dividendsRunFailed(ingestResult.dividends);
+    setHeaderStatus('prices', 'idle', 'now');
+    setHeaderStatus('dividends', divWarn ? 'warn' : 'idle', 'now');
+    setUpdRow('companies', 'Prices done. Refreshing the company list…');
+    return api('run_refresh_now');
+  }).then(function (r) {
+    refreshResult = r || {};
+    setHeaderStatus('companies', 'idle', 'now');
+    return loadAppSettings(); // reconciles the lights to real timestamps; honors divWarn for dividends
+  }).then(function () {
+    stopUpdPolling();
+    setUpdRow('done', updateResultLine(ingestResult, refreshResult));
+    setTimeout(function () { setUpdRow('idle'); }, 6000);
+  }).catch(function () {
+    stopUpdPolling();
+    divWarn = false;
+    setHeaderStatus('prices', 'fail'); setHeaderStatus('companies', 'fail'); setHeaderStatus('dividends', 'fail');
+    setUpdRow('failed', 'MSX did not respond. Nothing changed.');
+  });
+}
+// plain-language recap of what the run actually did — prices, companies, dividends — instead of a bare "finished".
+function updateResultLine(ing, ref) {
+  var parts = [];
+  var t = ing && ing.today, priceStamp = appSettings && appSettings.last_price_ingest_at;
+  if (typeof t === 'string' && /rows$/.test(t)) parts.push('prices to ' + (priceStamp ? fmtStatusDateShort(priceStamp) : 'today'));
+  else if (typeof t === 'string' && t.indexOf('weekend') === 0) parts.push('no trading today');
+  else parts.push('prices checked');
+  if (ref && typeof ref.live === 'number') {
+    var extra = [];
+    if (ref.added && ref.added.length) extra.push('+' + ref.added.length + ' new');
+    if (ref.delisted && ref.delisted.length) extra.push('−' + ref.delisted.length);
+    parts.push(ref.live + ' companies' + (extra.length ? ' (' + extra.join(', ') + ')' : ''));
+  } else parts.push('companies refreshed');
+  var dv = ing && ing.dividends;
+  if (divWarn) parts.push("dividends: couldn't refresh, kept last known");
+  else if (dv && typeof dv === 'object') {
+    var got = (dv.ok != null ? dv.ok : dv.updated) || 0;
+    parts.push(got > 0 ? 'dividends refreshed' : 'dividends: nothing new');
+  } else if (dv === 'not due') parts.push('dividends already current');
+  return 'Done. ' + parts.join(' · ') + '.';
+}
+$('upd-btn').onclick = runFullUpdate;
+setUpdRow('idle');
+
 function setOnline(ok, ts) {
   connOnline = ok;
   var b = $('offline');
@@ -1186,25 +1474,95 @@ function setOnline(ok, ts) {
     b.style.display = 'block';
   }
   renderConn();
+  if (ok && wqPending()) flushQueue(); // a read got through — drain any writes waiting on the network
 }
 
-// ---------- connection indicator (always visible) ----------
+// ---------- offline-first write queue ----------
+// Every mutation goes through apiWrite(): capture the intended payload in localStorage FIRST,
+// then try the server. A failed call leaves the entry queued and it replays, in order, on the
+// next successful contact (reconnect / focus / any read that gets through). A save is a deferred
+// success, never a silent loss — even if the window closes mid-save. Entries hold only the
+// action + its payload (the same whitelisted fields the server already accepts on that action),
+// so a replay can't clobber server-managed columns. Single-user, so last-write-wins is fine.
+var WQ_KEY = 'msx-writeq';
+var connOnline = true;   // last known server reachability (set by reads and by the flush)
+var wqFlushing = false;  // true while the queue is draining -> the light reads SYNCING
+function wqLoad() { try { return JSON.parse(localStorage.getItem(WQ_KEY)) || []; } catch (e) { return []; } }
+function wqSave(q) { localStorage.setItem(WQ_KEY, JSON.stringify(q)); }
+function wqPending() { return wqLoad().length; }
+
+// enqueue + attempt to flush. Returns the flush promise: online it resolves once the write is
+// confirmed (so a caller's reload sees fresh data); offline it resolves as soon as the attempt
+// fails (deferred success) so the UI can still give positive feedback. Never rejects.
+function apiWrite(action, params) {
+  var q = wqLoad();
+  q.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2), action: action, params: params || {} });
+  wqSave(q);
+  renderConn();
+  return flushQueue();
+}
+
+// drain the queue one entry at a time, in order; stop on the first failure so ordering holds and
+// nothing is dropped. Always resolves (success or not) — the connection light carries the truth.
+function flushQueue() {
+  if (wqFlushing) return Promise.resolve();
+  if (!wqPending()) { renderConn(); return Promise.resolve(); }
+  wqFlushing = true; renderConn();
+  function step() {
+    var q = wqLoad();
+    if (!q.length) return Promise.resolve();
+    var e = q[0];
+    return fetch(API + '/data', {
+      method: 'POST', headers: dataHeaders(),
+      body: JSON.stringify(Object.assign({ action: e.action }, e.params))
+    }).then(function (r) {
+      if (r.status >= 400 && r.status < 500) {
+        var denied = wqLoad(); denied.shift(); wqSave(denied); // refused, not offline — do not retry
+        connOnline = true;
+        return step();
+      }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var q2 = wqLoad(); q2.shift(); wqSave(q2); // confirmed by the server -> drop it
+      connOnline = true;
+      return step();
+    });
+  }
+  return step().then(function () {
+    wqFlushing = false; connOnline = true; renderConn();
+  }, function () {
+    wqFlushing = false; connOnline = false; renderConn();
+  });
+}
+
+// ---------- connection indicator (always visible; also the sync-feedback slot) ----------
+// Three states in the same dot language as the data lights: green ONLINE, red OFFLINE
+// (· N PENDING when writes are queued), pulsing SYNCING while the queue drains.
 function renderConn() {
   var dot = $('conn-dot'), lbl = $('conn-lbl');
   if (!dot || !lbl) return;
-  if (!connOnline) {
-    dot.className = 'status-dot fail'; lbl.textContent = 'OFFLINE'; lbl.title = 'No connection. Showing the last saved data.';
+  var pending = wqPending();
+  if (wqFlushing) {
+    dot.className = 'status-dot run'; lbl.textContent = 'SYNCING';
+    lbl.title = 'Sending your saved changes to the server…';
+  } else if (!connOnline) {
+    dot.className = 'status-dot fail';
+    lbl.textContent = pending ? 'OFFLINE · ' + pending + ' PENDING' : 'OFFLINE';
+    lbl.title = pending
+      ? pending + ' change' + (pending === 1 ? '' : 's') + ' saved on this device, waiting to sync when you reconnect.'
+      : 'No connection. Showing the last saved data.';
   } else {
     dot.className = 'status-dot'; lbl.textContent = 'ONLINE'; lbl.title = '';
   }
 }
 
 // ---------- silent background sync (online / window-focus refresh) ----------
-// Refreshes whatever's already on Supabase for the active tab.
+// Refreshes whatever's already on Supabase for the active tab — it does NOT force a
+// fresh MSX scrape (that's what the bottom updater row's button is for).
 // the transient "updating" pill was removed; these stay as harmless promise-settle handlers
 function showSync() {}
 function hideSync() {}
 function refreshActiveTab() {
+  flushQueue(); // reconnected — replay any writes captured while offline
   var t = ['home', 'browse', 'compare', 'charts'].filter(function (o) { return $('tb-' + o).classList.contains('on'); })[0];
   showSync();
   if (t === 'home') loadHome().then(hideSync, hideSync);
@@ -1258,7 +1616,7 @@ function wireTbar() {
   bind($('tbar-max'), 'toggleMaximize', 'plugin:window|toggle_maximize');
   bind($('tbar-close'), 'close', 'plugin:window|close');
   if (TAURI.updater && TAURI.app) {
-    $('app-update-group').style.display = '';
+    $('app-update-group').style.display = ''; $('app-update-web').style.display = 'none';
     TAURI.app.getVersion().then(function (v) {
       appUpdateStatus('Version ' + v);
       checkForAppUpdate(false);
@@ -1639,7 +1997,8 @@ function loadHome() {
         (r.recent_action ? ' <span class="badge act" title="Recent corporate action">' + r.recent_action + '</span>' : '') +
         '<div class="sub">' + r.name_en + (r.quantity != null ? ' · ' + r.quantity + ' @ ' + fmt(r.buy_price) : ' · watching') + '</div></div>' +
         '<div class="value">' + fmt(r.value) + '</div>' +
-        '<div class="gl ' + cls(r.gain_loss) + '">' + sign(r.gain_loss, 2) + '<span class="pct">' + sign(r.change_pct, 2) + '%</span></div></div>';
+        '<div class="gl ' + cls(r.gain_loss) + '">' + sign(r.gain_loss, 2) + '<span class="pct">' + sign(r.change_pct, 2) + '%</span></div>' +
+        '<button class="x" data-id="' + r.id + '" title="Remove">&#10005;</button></div>';
     }).join('');
     $('wl').innerHTML = h;
 
@@ -1652,12 +2011,25 @@ function loadHome() {
     var c = localStorage.getItem('c_home{}');
     if (c) $('synced').textContent = 'Last synced ' + new Date(JSON.parse(c).t).toLocaleString();
     Array.prototype.forEach.call(document.querySelectorAll('.prow'), function (row) {
-      row.onclick = function () { openDetail(row.getAttribute('data-ticker')); };
+      row.onclick = function (ev) {
+        if (ev.target.closest('.x')) return;
+        openDetail(row.getAttribute('data-ticker'));
+      };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.x'), function (b) {
+      b.onclick = function (ev) {
+        ev.stopPropagation();
+        if (!confirm('Remove this stock from your list?')) return;
+        var row = b.closest('.prow');
+        if (row) row.remove(); // remove instantly instead of waiting on the round trip
+        apiWrite('remove', { id: b.getAttribute('data-id') }).then(loadHome, loadHome);
+      };
     });
   }).catch(function (e) { $('wl').innerHTML = '<p class="mut" style="padding:20px">Could not load: ' + e.message + '</p>'; });
 }
 
-// ---------- detail ----------
+// ---------- detail + add flow ----------
+var verifiedFlag = false;
 // Dividends block for the detail sheet. Best-effort cached data (stockanalysis, via the backend);
 // when we have none it degrades to a plain link-out. Shows a personalized payout when the user
 // holds the stock (we know their share count), plus a quiet "how it's calculated" line otherwise.
@@ -1687,6 +2059,50 @@ function renderDividends(t, d) {
   return h;
 }
 
+// custom clay calendar for the buy-date field — reuses the Compare tab's .cal-* styles. #f-date stays
+// a hidden input holding YYYY-MM-DD (what verify/save read), so only the display + picker are new.
+var buyDatePicker = null;
+function initBuyDatePicker() {
+  var hid = $('f-date'), btn = $('f-date-btn'), wrap = $('f-cal'), grid = $('f-cal-grid'), title = $('f-cal-title');
+  if (!hid || !btn) return null;
+  var now = new Date(), todayStr = now.toISOString().slice(0, 10);
+  var cur = { y: now.getFullYear(), m: now.getMonth() };
+  function fmtDisplay(ds) { if (!ds) return 'Pick a date'; var p = ds.split('-'); return (+p[2]) + ' ' + CMP_MON[(+p[1]) - 1] + ' ' + p[0]; }
+  function syncBtn() { btn.textContent = fmtDisplay(hid.value); btn.classList.toggle('empty', !hid.value); }
+  function render() {
+    title.textContent = CMP_MON[cur.m] + ' ' + cur.y;
+    var startDow = new Date(Date.UTC(cur.y, cur.m, 1)).getUTCDay();
+    var days = new Date(Date.UTC(cur.y, cur.m + 1, 0)).getUTCDate();
+    var html = '';
+    for (var i = 0; i < startDow; i++) html += '<div class="cal-day empty"></div>';
+    for (var d = 1; d <= days; d++) {
+      var ds = cur.y + '-' + String(cur.m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      var future = ds > todayStr; // you can't have bought in the future
+      html += '<div class="cal-day' + (future ? ' disabled' : '') + (ds === todayStr ? ' today' : '') + (ds === hid.value ? ' selected' : '') + '"' + (future ? '' : ' data-d="' + ds + '"') + '>' + d + '</div>';
+    }
+    grid.innerHTML = html;
+    Array.prototype.forEach.call(grid.querySelectorAll('.cal-day[data-d]'), function (el) {
+      el.onclick = function () { hid.value = el.getAttribute('data-d'); syncBtn(); close(); };
+    });
+  }
+  function open() { if (hid.value) { var p = hid.value.split('-'); cur = { y: +p[0], m: +p[1] - 1 }; } render(); wrap.style.display = 'block'; btn.classList.add('open'); }
+  function close() { wrap.style.display = 'none'; btn.classList.remove('open'); }
+  btn.onclick = function (e) { e.stopPropagation(); wrap.style.display === 'none' ? open() : close(); };
+  $('f-cal-prev').onclick = function () { if (cur.m === 0) { cur.m = 11; cur.y--; } else cur.m--; render(); };
+  $('f-cal-next').onclick = function () { if (cur.m === 11) { cur.m = 0; cur.y++; } else cur.m++; render(); };
+  $('f-cal-clear').onclick = function () { hid.value = ''; syncBtn(); close(); };
+  // one global outside-click closer (the picker is rebuilt per open, but this attaches once)
+  if (!window._buyDateOutside) {
+    window._buyDateOutside = true;
+    document.addEventListener('click', function (e) {
+      var w = $('f-cal'), b = $('f-date-btn');
+      if (w && w.style.display !== 'none' && !w.contains(e.target) && e.target !== b) { w.style.display = 'none'; if (b) b.classList.remove('open'); }
+    });
+  }
+  syncBtn();
+  return { syncBtn: syncBtn };
+}
+
 function openDetail(t) {
   $('modal').innerHTML = '<div class="sheet-loading-rule"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>' +
     '<div class="sheet-loading-label">PULLING MSX HISTORY FOR ' + t + '</div>';
@@ -1695,10 +2111,12 @@ function openDetail(t) {
   api('detail', { ticker: t }).then(function (d) {
     var L = d.latest || {};
     var hasPrice = L.close != null;
+    var watching = d.watching, hasPosition = d.hasPosition;
     var html = '<div class="detail-head">' +
       '<div><div class="detail-kicker">' + (d.sector || '&nbsp;') + '</div><h2>' + t + '</h2><div class="detail-name">' + (d.name || '') + '</div></div>' +
       '<div class="detail-head-right">' +
-      (d.watching ? '<span class="watch-pill on"><span>&#9679;</span><span>WATCHING</span></span>' : '') +
+      '<button class="watch-pill' + (watching ? ' on' : '') + '" id="watch-pill">' +
+      (watching ? '<span>&#9679;</span><span>WATCHING</span>' : '<span>+</span><span>WATCHLIST</span>') + '</button>' +
       '<button class="close-x" id="f-cancel-x">&#10005;</button></div></div>';
 
     if (hasPrice) {
@@ -1723,7 +2141,35 @@ function openDetail(t) {
       }).join('') + '</div>';
     }
     html += renderDividends(t, d);
+    html += '<hr>' +
+      '<div class="add-heading">Add to my stocks</div>' +
+      '<p class="mut" style="font-size:13px">Enter what you bought the tool will check it against MSX history.</p>' +
+      '<div class="field-grid">' +
+      '<div class="field"><label>How many shares</label><input type="number" id="f-qty" min="0" step="any"></div>' +
+      '<div class="field"><label>Buy price (OMR)</label><input type="number" id="f-price" min="0" step="0.001"></div></div>' +
+      '<div class="field" style="max-width:320px"><label>Buy date (optional)</label>' +
+      '<input type="hidden" id="f-date">' +
+      '<button type="button" class="date-trigger empty" id="f-date-btn">Pick a date</button>' +
+      '<div class="cal-wrap" id="f-cal" style="display:none">' +
+      '<div class="cal-head"><button type="button" id="f-cal-prev">&#8249;</button>' +
+      '<span class="cal-title" id="f-cal-title"></span>' +
+      '<button type="button" id="f-cal-next">&#8250;</button></div>' +
+      '<div class="cal-weekdays"><div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div></div>' +
+      '<div class="cal-grid" id="f-cal-grid"></div>' +
+      '<div style="text-align:right;margin-top:8px"><span class="btn-inline" id="f-cal-clear">Clear</span></div>' +
+      '</div></div>' +
+      '<button class="btn-pill" id="f-verify">Check this price</button>' +
+      '<div id="verdict"></div>' +
+      '<div class="alertrow"><label><input type="checkbox" id="f-alert"> Also alert me when price goes</label>' +
+      '<button type="button" class="cmp-switch alert-switch" id="f-cond-toggle" role="switch" aria-checked="false">' +
+      '<span class="knob"></span><span class="opt opt-all">BELOW</span><span class="opt opt-mine">ABOVE</span></button>' +
+      '<input type="hidden" id="f-cond" value="below">' +
+      '<input type="number" id="f-thresh" step="0.001" style="width:110px" placeholder="0.000"></div>' +
+      '<p class="mut">Alerts are end of day: you get an email after market close if the closing price crossed your level. It fires once, then switches off.</p>' +
+      '<div class="bar"><button class="btn-pill" id="f-save">Save position</button><button class="btn-inline" id="f-cancel">Cancel</button></div>';
     $('modal').innerHTML = html;
+    verifiedFlag = false;
+    buyDatePicker = initBuyDatePicker();
 
     if (hasPrice && d.trend && d.trend.length && window.Plotly) {
       var last44 = d.trend.slice(-44);
@@ -1750,7 +2196,65 @@ function openDetail(t) {
       if ($('spark-caption')) $('spark-caption').textContent = 'no recent history to chart';
     }
 
+    // watchlist pill: toggles a lightweight watch, independent of holding a real position
+    $('watch-pill').onclick = function () {
+      if (hasPosition) return; // a real position is removed from My Stocks, not un-watched here
+      var pill = $('watch-pill');
+      pill.disabled = true; pill.innerHTML = '<span>SAVING…</span>';
+      var action = watching ? 'unwatch' : 'watch';
+      // deferred success: the pill flips now and the write syncs when it can (offline-safe)
+      apiWrite(action, { ticker: t }).then(function () {
+        watching = !watching;
+        pill.disabled = false; pill.className = 'watch-pill' + (watching ? ' on' : '');
+        pill.innerHTML = watching ? '<span>&#9679;</span><span>WATCHING</span>' : '<span>+</span><span>WATCHLIST</span>';
+      });
+    };
+    $('f-cancel').onclick = closeModal;
     $('f-cancel-x').onclick = closeModal;
+    // below/above is a binary choice, so it reuses the SCOPE capsule switch (.cmp-switch) rather
+    // than a native <select> whose open option list is drawn by the OS and can't be themed.
+    // aria-checked true means "above"; #f-cond keeps the value f-save reads.
+    $('f-cond-toggle').onclick = function () {
+      var above = $('f-cond-toggle').getAttribute('aria-checked') !== 'true';
+      $('f-cond-toggle').setAttribute('aria-checked', String(above));
+      $('f-cond').value = above ? 'above' : 'below';
+    };
+    $('f-price').oninput = function () { if (!$('f-thresh').value) $('f-thresh').value = $('f-price').value; };
+    $('f-verify').onclick = function () {
+      var btn = $('f-verify'), v = $('verdict');
+      btn.disabled = true; btn.textContent = 'Checking…';
+      v.style.display = 'block'; v.className = ''; v.textContent = '';
+      api('verify', { ticker: t, price: $('f-price').value, date: $('f-date').value }).then(function (r) {
+        verifiedFlag = false;
+        btn.disabled = false; btn.textContent = 'Check again';
+        if (r.verdict === 'verified') { v.className = 'ok'; v.textContent = 'Verified: price matches ' + r.date + ' (low ' + fmt(r.low) + ' - high ' + fmt(r.high) + ', close ' + fmt(r.close) + ')'; verifiedFlag = true; }
+        else if (r.verdict === 'verified_nearby') { v.className = 'ok'; v.textContent = 'Verified: matches nearby trading day ' + r.date + ' (close ' + fmt(r.close) + ')'; verifiedFlag = true; }
+        else if (r.verdict === 'mismatch') { v.className = 'bad'; v.textContent = 'Does not match ' + r.date + ' (low ' + fmt(r.low) + ' - high ' + fmt(r.high) + ', close ' + fmt(r.close) + '). You can still save it as unverified.'; }
+        else if (r.verdict === 'candidates') {
+          v.className = 'mid'; v.innerHTML = '<span class="cand-lead">No date given, this price matches:</span>' +
+            '<span class="cand-row">' + r.candidates.map(function (c) {
+              return '<button type="button" class="cmp-pill cand" data-d="' + c.date + '"><span>' + c.date + '</span><span class="cand-px">' + fmt(c.close) + '</span></button>';
+            }).join('') + '</span>';
+          Array.prototype.forEach.call(v.querySelectorAll('.cand'), function (el) {
+            el.onclick = function () { $('f-date').value = el.getAttribute('data-d'); if (buyDatePicker) buyDatePicker.syncBtn(); $('f-verify').click(); };
+          });
+        }
+        else { v.className = 'mid'; v.textContent = 'No trading data near that date.'; }
+      });
+    };
+    $('f-save').onclick = function () {
+      if (!$('f-qty').value || !$('f-price').value) { alert('Enter quantity and buy price.'); return; }
+      var btn = $('f-save');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      var p = { ticker: t, quantity: $('f-qty').value, buy_price: $('f-price').value, buy_date: $('f-date').value, verified: String(verifiedFlag) };
+      if ($('f-alert').checked && $('f-thresh').value) { p.alert_condition = $('f-cond').value; p.alert_threshold = $('f-thresh').value; }
+      // deferred success: captured locally + synced when possible, so no "save failed" path —
+      // the connection light shows whether it's live on the server yet.
+      apiWrite('save', p).then(function () {
+        btn.textContent = 'Saved ✓';
+        setTimeout(function () { closeModal(); loadHome(); }, 400);
+      });
+    };
   }).catch(function () {
     $('modal').innerHTML = '<p class="mut" style="padding:20px">Could not load — check your connection and try again.</p>' +
       '<div class="bar"><button class="btn-pill" id="f-close-err">Close</button></div>';
@@ -2748,6 +3252,7 @@ function loadPriceView(t, attempt) {
 loadHome();
 loadAppSettings();
 renderConn();
+flushQueue(); // replay anything left queued from a previous session
 </script>
 </body>
 </html>

@@ -6,14 +6,22 @@ Deno.test("public API comments and copy are not family-specific", () => {
   assert(!/\bDad\b/i.test(src));
 });
 
-Deno.test("the app has no write actions left", () => {
-  for (const action of ["save", "remove", "watch", "unwatch", "save_settings", "run_ingest_now", "run_refresh_now"]) {
-    assert(!src.includes(`case "${action}"`), `${action} should have been removed, not left as a write path`);
-  }
-  assert(!src.includes("x-ingest-key"), "the app no longer needs an operator key — it's read-only");
-  assert(!src.includes("INGEST_SECRET"), "the app no longer checks the ingest secret");
+Deno.test("no operator key on /data", () => {
+  assert(!src.includes("x-ingest-key\")"), "app must not read the key from the request");
+  assert(!src.includes("WRITE_ACTIONS"));
+  assert(src.includes('"Access-Control-Allow-Headers": "content-type"'));
 });
 
-Deno.test("digest_email is never served over the public read API", () => {
-  assert(src.includes("digest_email = null"));
+Deno.test("bad input is 400, unknown action is 404, the rest is 500", () => {
+  assert(src.includes("status: 400"));
+  assert(src.includes("status: 404"));
+  assert(src.includes("status: 500"));
+});
+
+Deno.test("every value that lands in a REST URL goes through a checker", () => {
+  for (const m of src.matchAll(/rest\(\s*`([^`]*)`/g)) {
+    for (const v of m[1].matchAll(/\$\{([^}]+)\}/g)) {
+      assert(!/\bp\.\w+/.test(v[1]) || /^(ticker|count|day)\(/.test(v[1]), `raw input in URL: ${v[1]}`);
+    }
+  }
 });
