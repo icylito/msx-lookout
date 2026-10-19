@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "jsr:@std/assert@1";
+import { assert } from "jsr:@std/assert@1";
 
 const src = await Deno.readTextFile(new URL("./supabase/functions/app/app.ts", import.meta.url));
 
@@ -6,30 +6,22 @@ Deno.test("public API comments and copy are not family-specific", () => {
   assert(!/\bDad\b/i.test(src));
 });
 
-Deno.test("mutations are listed as write actions", () => {
-  for (const action of [
-    "save", "remove", "watch", "unwatch", "save_settings",
-    "list_exports", "export_url", "run_ingest_now", "run_refresh_now",
-  ]) {
-    assert(src.includes(`"${action}"`), `WRITE_ACTIONS missing ${action}`);
-  }
+Deno.test("no operator key on /data", () => {
+  assert(!src.includes("x-ingest-key\")"), "app must not read the key from the request");
+  assert(!src.includes("WRITE_ACTIONS"));
+  assert(src.includes('"Access-Control-Allow-Headers": "content-type"'));
 });
 
-Deno.test("unprivileged writes return 403 and CORS allows the ingest header", () => {
-  assert(src.includes('status: 403'));
-  assert(src.includes("content-type, x-ingest-key"));
-  assert(src.includes("digest_email = null"));
+Deno.test("bad input is 400, unknown action is 404, the rest is 500", () => {
+  assert(src.includes("status: 400"));
+  assert(src.includes("status: 404"));
+  assert(src.includes("status: 500"));
 });
 
-Deno.test("isPrivileged fails closed when the secret is empty", () => {
-  function isPrivileged(got: string | null, secret: string | undefined): boolean {
-    const s = secret ?? "";
-    const g = got ?? "";
-    return s.length > 0 && g === s;
+Deno.test("every value that lands in a REST URL goes through a checker", () => {
+  for (const m of src.matchAll(/rest\(\s*`([^`]*)`/g)) {
+    for (const v of m[1].matchAll(/\$\{([^}]+)\}/g)) {
+      assert(!/\bp\.\w+/.test(v[1]) || /^(ticker|count|day)\(/.test(v[1]), `raw input in URL: ${v[1]}`);
+    }
   }
-  assertEquals(isPrivileged(null, undefined), false);
-  assertEquals(isPrivileged("", ""), false);
-  assertEquals(isPrivileged("x", ""), false);
-  assertEquals(isPrivileged("secret", "secret"), true);
-  assertEquals(isPrivileged("nope", "secret"), false);
 });

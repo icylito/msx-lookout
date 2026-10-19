@@ -1,4 +1,4 @@
-// Public JSON API + Excel download. Reads are open; writes need x-ingest-key.
+// Public JSON API + Excel download. No key; only the app's own actions, with checked inputs.
 // The page itself is static (web/index.html on GitHub Pages); this serves it cross-origin.
 import { generateExcel } from "./excel.ts";
 import { fetchHistoryDay, isTradingDay, MARKET_NUM, num } from "./msx-client.ts";
@@ -78,21 +78,41 @@ async function fillGapIfStale(ticker: string, lastDate: string | null): Promise<
   return `No trades on MSX in the last 7 days, this stock just hasn't traded.`;
 }
 
-// reads stay public; mutations need the same x-ingest-key as ingest/refresh/digest/backup
-const WRITE_ACTIONS = new Set([
-  "save", "remove", "watch", "unwatch", "save_settings",
-  "list_exports", "export_url", "run_ingest_now", "run_refresh_now",
-]);
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "content-type, x-ingest-key",
+  "Access-Control-Allow-Headers": "content-type",
 };
 
-function isPrivileged(req: Request): boolean {
-  const secret = Deno.env.get("INGEST_SECRET") ?? "";
-  const got = req.headers.get("x-ingest-key") ?? "";
-  return secret.length > 0 && got === secret;
+// no key: the actions below are the whole surface, and every input is checked before it reaches a URL or a row
+class BadInput extends Error {}
+class UnknownAction extends Error {}
+const FREQS = ["daily", "weekly", "monthly"];
+const FREQS_OFF = [...FREQS, "never"];
+
+function ticker(v: unknown): string {
+  const t = String(v ?? "").trim().toUpperCase();
+  if (!/^[A-Z0-9.-]{1,15}$/.test(t)) throw new BadInput("bad ticker");
+  return t;
+}
+function day(v: unknown): string {
+  const s = String(v ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || isNaN(Date.parse(s))) throw new BadInput("bad date");
+  return s;
+}
+function amount(v: unknown): number {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0 || n > 1e9) throw new BadInput("bad number");
+  return n;
+}
+function oneOf(v: unknown, allowed: string[], what = "value"): string {
+  const s = String(v ?? "");
+  if (!allowed.includes(s)) throw new BadInput(`${what} must be one of ${allowed.join(", ")}`);
+  return s;
+}
+function count(v: unknown, fallback: number, max: number): number {
+  const n = Math.floor(Number(v) || fallback);
+  return Math.min(Math.max(n, 1), max);
 }
 
 async function rest(path: string, init?: RequestInit) {
@@ -158,7 +178,7 @@ async function storageUpload(path: string, bytes: Uint8Array) {
   }
 }
 
-async function handleData(p: Record<string, string>, privileged = false) {
+async function handleData(p: Record<string, string>) {
   switch (p.action) {
     case "home": {
       const [watchlist, state] = await Promise.all([rpc("watchlist_view", {}), rpc("fallback_state", {})]);
@@ -176,20 +196,20 @@ async function handleData(p: Record<string, string>, privileged = false) {
     case "browse":
       return await rpc("all_stocks_view", {});
     case "detail": {
+      const t = ticker(p.ticker);
       let [latest, trend, actions, watchRows, company, dividends] = await Promise.all([
-        rpc("latest_price", { p_ticker: p.ticker }),
-        rpc("price_trend", { p_ticker: p.ticker, p_days: 90 }),
-        rpc("ticker_actions", { p_ticker: p.ticker, p_days: 180 }),
-        rest(`watchlist?ticker=eq.${p.ticker.toUpperCase()}&select=id,quantity,buy_price`),
-        rest(`companies?ticker=eq.${p.ticker.toUpperCase()}&select=name_en,sector`),
-        rest(`dividends?ticker=eq.${p.ticker.toUpperCase()}&select=ex_date,amount,record_date,pay_date&order=ex_date.desc&limit=8`),
+        rpc("latest_price", { p_ticker: t }),
+        rpc("price_trend", { p_ticker: t, p_days: 90 }),
+        rpc("ticker_actions", { p_ticker: t, p_days: 180 }),
+        rest(`watchlist?ticker=eq.${t}&select=id,quantity,buy_price`),
+        rest(`companies?ticker=eq.${t}&select=name_en,sector`),
+        rest(`dividends?ticker=eq.${t}&select=ex_date,amount,record_date,pay_date&order=ex_date.desc&limit=8`),
       ]);
-      const ticker = p.ticker.toUpperCase();
-      const gapNote = await fillGapIfStale(ticker, latest[0]?.date ?? null);
+      const gapNote = await fillGapIfStale(t, latest[0]?.date ?? null);
       if (gapNote && gapNote.startsWith("Recovered")) {
         [latest, trend] = await Promise.all([
-          rpc("latest_price", { p_ticker: ticker }),
-          rpc("price_trend", { p_ticker: ticker, p_days: 90 }),
+          rpc("latest_price", { p_ticker: t }),
+          rpc("price_trend", { p_ticker: t, p_days: 90 }),
         ]);
       }
       return {
@@ -201,27 +221,27 @@ async function handleData(p: Record<string, string>, privileged = false) {
       };
     }
     case "verify":
-      return await rpc("verify_buy", { p_ticker: p.ticker, p_price: Number(p.price), p_date: p.date || null });
+      return await rpc("verify_buy", { p_ticker: ticker(p.ticker), p_price: amount(p.price), p_date: p.date ? day(p.date) : null });
     case "save": {
-      await rest("watchlist", {
-        method: "POST",
-        body: JSON.stringify({
-          ticker: p.ticker, quantity: Number(p.quantity), buy_price: Number(p.buy_price),
-          buy_date: p.buy_date || null, verified: p.verified === "true",
-          verification_source: p.verified === "true" ? "msx history" : null,
-        }),
-      });
-      if (p.alert_condition) {
-        await rest("alerts", {
-          method: "POST",
-          body: JSON.stringify({ ticker: p.ticker, condition: p.alert_condition, threshold_price: Number(p.alert_threshold) }),
-        });
-      }
+      const t = ticker(p.ticker);
+      const row = {
+        ticker: t, quantity: amount(p.quantity), buy_price: amount(p.buy_price),
+        buy_date: p.buy_date ? day(p.buy_date) : null, verified: String(p.verified) === "true",
+        verification_source: String(p.verified) === "true" ? "msx history" : null,
+      };
+      const alert = p.alert_condition
+        ? { ticker: t, condition: oneOf(p.alert_condition, ["below", "above"], "alert"), threshold_price: amount(p.alert_threshold) }
+        : null;
+      await rest("watchlist", { method: "POST", body: JSON.stringify(row) });
+      if (alert) await rest("alerts", { method: "POST", body: JSON.stringify(alert) });
       return { ok: true };
     }
     case "remove": {
-      const row = await rest(`watchlist?id=eq.${p.id}&select=ticker`);
-      await rest(`watchlist?id=eq.${p.id}`, { method: "DELETE" });
+      const id = String(p.id ?? "");
+      if (!/^[0-9a-f-]{36}$/i.test(id)) throw new BadInput("bad id");
+      const row = await rest(`watchlist?id=eq.${id}&select=ticker`);
+      if (!row.length) return { ok: true };
+      await rest(`watchlist?id=eq.${id}`, { method: "DELETE" });
       const left = await rest(`watchlist?ticker=eq.${row[0].ticker}&select=id`);
       if (left.length === 0) {
         await rest(`alerts?ticker=eq.${row[0].ticker}`, { method: "PATCH", body: JSON.stringify({ active: false }) });
@@ -230,17 +250,16 @@ async function handleData(p: Record<string, string>, privileged = false) {
     }
     // lightweight watch (no position) — the detail sheet's watchlist pill, separate from "save" (add a real position)
     case "watch": {
-      const ticker = p.ticker.toUpperCase();
-      const existing = await rest(`watchlist?ticker=eq.${ticker}&select=id`);
+      const t = ticker(p.ticker);
+      const existing = await rest(`watchlist?ticker=eq.${t}&select=id`);
       if (existing.length === 0) {
-        await rest("watchlist", { method: "POST", body: JSON.stringify({ ticker, quantity: null, buy_price: null }) });
+        await rest("watchlist", { method: "POST", body: JSON.stringify({ ticker: t, quantity: null, buy_price: null }) });
       }
       return { ok: true };
     }
     case "unwatch": {
       // only removes watch-only rows (no quantity/buy_price) — a real position must go through "remove"
-      const ticker = p.ticker.toUpperCase();
-      await rest(`watchlist?ticker=eq.${ticker}&quantity=is.null`, { method: "DELETE" });
+      await rest(`watchlist?ticker=eq.${ticker(p.ticker)}&quantity=is.null`, { method: "DELETE" });
       return { ok: true };
     }
     case "weeks": {
@@ -250,33 +269,43 @@ async function handleData(p: Record<string, string>, privileged = false) {
     }
     case "compare":
       // p_ticker null = all stocks; a ticker = just that one (compare_periods handles both)
-      return await rpc("compare_periods", { s1: p.s1, e1: p.e1, s2: p.s2, e2: p.e2, p_ticker: p.ticker || null });
+      return await rpc("compare_periods", {
+        s1: day(p.s1), e1: day(p.e1), s2: day(p.s2), e2: day(p.e2), p_ticker: p.ticker ? ticker(p.ticker) : null,
+      });
     case "ohlc": {
       const rows = await rest(
-        `stock_prices?ticker=eq.${p.ticker.toUpperCase()}&source=eq.msx&period_type=eq.daily` +
-          `&select=date,open,high,low,close,volume&order=date.desc&limit=${Number(p.days) || 90}`,
+        `stock_prices?ticker=eq.${ticker(p.ticker)}&source=eq.msx&period_type=eq.daily` +
+          `&select=date,open,high,low,close,volume&order=date.desc&limit=${count(p.days, 90, 5000)}`,
       );
       return rows.reverse();
     }
     case "weekly": {
       const rows = await rest(
-        `weekly_prices?ticker=eq.${p.ticker.toUpperCase()}` +
-          `&select=week_start,close,volume&order=week_start.desc&limit=${Number(p.weeks) || 26}`,
+        `weekly_prices?ticker=eq.${ticker(p.ticker)}` +
+          `&select=week_start,close,volume&order=week_start.desc&limit=${count(p.weeks, 26, 1000)}`,
       );
       return rows.reverse();
     }
     case "companies":
       return await rest("companies?select=ticker,name_en&active=eq.true&order=name_en");
-    case "get_settings": {
-      const row = (await rest("app_settings?id=eq.1"))[0] ?? null;
-      if (row && !privileged) row.digest_email = null;
-      return row;
-    }
+    case "get_settings":
+      return (await rest("app_settings?id=eq.1"))[0] ?? null;
     case "save_settings": {
       const patch: Record<string, unknown> = {};
-      for (const k of ["display_name", "digest_email", "price_update_freq", "company_refresh_freq", "digest_freq", "dividends_update_freq"]) {
-        if (p[k] !== undefined) patch[k] = p[k] || null;
+      if (p.display_name !== undefined) {
+        const name = String(p.display_name ?? "").trim();
+        if (name.length > 60) throw new BadInput("name is too long");
+        patch.display_name = name || null;
       }
+      if (p.digest_email !== undefined) {
+        const email = String(p.digest_email ?? "").trim();
+        if (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new BadInput("email doesn't look right");
+        patch.digest_email = email || null;
+      }
+      if (p.price_update_freq !== undefined) patch.price_update_freq = oneOf(p.price_update_freq, FREQS, "price updates");
+      if (p.company_refresh_freq !== undefined) patch.company_refresh_freq = oneOf(p.company_refresh_freq, FREQS, "company refresh");
+      if (p.digest_freq !== undefined) patch.digest_freq = oneOf(p.digest_freq, FREQS_OFF, "digest email");
+      if (p.dividends_update_freq !== undefined) patch.dividends_update_freq = oneOf(p.dividends_update_freq, FREQS_OFF, "dividends");
       // booleans must coerce properly — `false || null` would wrongly null the column
       for (const k of ["email_master_enabled", "notify_listings", "notify_failures"]) {
         if (p[k] !== undefined) {
@@ -306,10 +335,8 @@ async function handleData(p: Record<string, string>, privileged = false) {
       return out;
     }
     case "export_url": {
-      const path = p.path ?? "";
-      if (!path || path.includes("..") || path.includes("\\") || path.startsWith("/")) {
-        throw new Error("bad path");
-      }
+      const path = String(p.path ?? "");
+      if (!/^[\w-]+\/[\w.-]+\.xlsx$/.test(path) || path.includes("..")) throw new BadInput("bad path");
       return { url: await storageSign(path) };
     }
     case "run_ingest_now":
@@ -317,7 +344,7 @@ async function handleData(p: Record<string, string>, privileged = false) {
     case "run_refresh_now":
       return await runNow("refresh");
     default:
-      throw new Error(`unknown action ${p.action}`);
+      throw new UnknownAction(`unknown action ${String(p.action)}`);
   }
 }
 
@@ -328,23 +355,21 @@ Deno.serve(async (req) => {
 
   try {
     if (url.pathname.endsWith("/data") && req.method === "POST") {
-      const body = await req.json();
-      const privileged = isPrivileged(req);
-      if (WRITE_ACTIONS.has(body.action) && !privileged) {
-        return Response.json({ error: "forbidden" }, { status: 403, headers: CORS });
-      }
-      return Response.json(await handleData(body, privileged), { headers: CORS });
+      const body = await req.json().catch(() => null);
+      if (!body || typeof body !== "object") return Response.json({ error: "body must be JSON" }, { status: 400, headers: CORS });
+      return Response.json(await handleData(body), { headers: CORS });
     }
     if (url.pathname.endsWith("/excel")) {
       const s = url.searchParams;
-      const cmp = s.get("cs") ? { start: s.get("cs")!, end: s.get("ce")! } : undefined;
-      const bytes = await generateExcel(s.get("start")!, s.get("end")!, cmp);
-      const filename = `msx-${s.get("end")}.xlsx`;
+      const start = day(s.get("start")), end = day(s.get("end"));
+      const cmp = s.get("cs") ? { start: day(s.get("cs")), end: day(s.get("ce")) } : undefined;
+      const bytes = await generateExcel(start, end, cmp);
+      const filename = `msx-${end}.xlsx`;
       // archive every user-initiated download so it can be re-browsed later, grouped by
       // year-month of the export's end date; failures are swallowed inside storageUpload
       // so a storage hiccup never breaks the actual download (awaited: an Edge Function's
       // isolate isn't guaranteed to keep running an un-awaited task after the response ships)
-      await storageUpload(`${(s.get("end") ?? "").slice(0, 7)}/${filename}`, bytes);
+      await storageUpload(`${end.slice(0, 7)}/${filename}`, bytes);
       // Uint8Array<ArrayBufferLike> vs BodyInit's ArrayBuffer-only generic is a
       // TS lib strictness mismatch, not a runtime issue — Deno accepts this directly.
       return new Response(bytes as BodyInit, {
@@ -357,6 +382,8 @@ Deno.serve(async (req) => {
     }
     return Response.json({ ok: "MSX Lookout API. The app is at your GitHub Pages URL." }, { headers: CORS });
   } catch (e) {
+    if (e instanceof BadInput) return Response.json({ error: e.message }, { status: 400, headers: CORS });
+    if (e instanceof UnknownAction) return Response.json({ error: e.message }, { status: 404, headers: CORS });
     console.error("app error:", (e as Error).message);
     return Response.json({ error: (e as Error).message }, { status: 500, headers: CORS });
   }

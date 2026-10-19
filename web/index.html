@@ -205,6 +205,12 @@
      .done other committing pills persist. The connection light, not the button, tells you
      whether the save is live on the server yet. Reverts after 1.5s. See CLAUDE.md button roles. */
   .btn-pill.saved { border-color:var(--border2); color:var(--muted); cursor:default; }
+  /* one save for General + Schedule; hidden on panes with nothing to save */
+  #settings-savebar { display:none; align-items:center; justify-content:flex-end; gap:18px; margin-top:auto; padding-top:34px; }
+  #settings-modal.has-save #settings-savebar { display:flex; }
+  #settings-modal.has-save .settings-content { display:flex; flex-direction:column; }
+  #set-save-msg { flex:1; text-align:right; font-size:12px; }
+  #set-save-msg.err { color:var(--bad); }
   /* ---- Role 3 (inline action): bare clay caps ---- */
   .btn-inline {
     padding:0; border:none; background:transparent; font-family:'Figtree', sans-serif; font-weight:600;
@@ -1027,6 +1033,7 @@
     </div>
     <button class="settings-nav on" data-pane="appearance">Appearance</button>
     <button class="settings-nav" data-pane="general">General</button>
+    <button class="settings-nav" data-pane="schedule">Schedule</button>
     <button class="settings-nav" data-pane="exports">Excel files</button>
     <button class="settings-nav" data-pane="updater">Updater</button>
   </div>
@@ -1043,10 +1050,12 @@
       <h3>General</h3>
       <div class="field"><label for="set-name">Display name</label><input id="set-name" autocomplete="name" placeholder="Your name"></div>
       <div class="field" style="margin-top:18px"><label for="set-email">Digest &amp; alert email</label><input id="set-email" type="email" autocomplete="email" placeholder="you@example.com"></div>
-      <div class="field" style="margin-top:18px"><label for="set-opkey">Operator key</label><input id="set-opkey" type="password" autocomplete="off" spellcheck="false" placeholder="Needed to save, not to browse"></div>
-      <p class="mut" style="margin-top:8px">Prices and charts are open to read. Changing the shared watchlist, email settings, or running updates needs this key (same value as the server ingest secret). It stays on this device only.</p>
-      <div class="settings-group" style="margin-top:26px;margin-bottom:0">
-        <div class="settings-group-label" style="margin-bottom:2px">Notifications</div>
+      <p class="mut" style="margin-top:8px">Leave the email blank and no mail is sent.</p>
+    </div>
+    <div class="settings-pane" id="pane-schedule">
+      <h3>Schedule</h3>
+      <div class="settings-group">
+        <div class="settings-group-label" style="margin-bottom:2px">Email</div>
         <div class="ntf-row" id="ntf-master-row">
           <div class="ntf-txt"><div class="ntf-name">All email notifications</div><div class="ntf-why">Master switch. Turn this off and nothing below ever emails you.</div></div>
           <button type="button" class="cmp-switch ntf-switch" id="ntf-master" role="switch" aria-checked="true"><span class="knob"></span><span class="opt opt-all">OFF</span><span class="opt opt-mine">ON</span></button>
@@ -1067,17 +1076,7 @@
           <button type="button" class="tpick-opt" data-freq="never">Never</button>
         </div>
       </div>
-      <div style="display:flex;justify-content:flex-end;margin-top:34px">
-        <button class="btn-pill" id="set-general-save">SAVE SCHEDULE</button>
-      </div>
-    </div>
-    <div class="settings-pane" id="pane-exports">
-      <h3>Excel files</h3>
-      <div id="exports-list"><p class="mut">Loading...</p></div>
-    </div>
-    <div class="settings-pane" id="pane-updater">
-      <h3>Updater</h3>
-      <div class="settings-group">
+      <div class="settings-group" style="margin-top:30px">
         <div class="settings-group-label">Price updates</div>
         <div class="freq-toggle" id="freq-price">
           <button type="button" class="tpick-opt" data-freq="daily">Daily</button>
@@ -1105,15 +1104,23 @@
         </div>
         <p class="mut" id="last-dividends-update"></p>
       </div>
-      <div style="display:flex;justify-content:flex-end;margin-top:34px">
-        <button class="btn-pill" id="set-updater-save">SAVE SCHEDULE</button>
-      </div>
-      <hr>
+    </div>
+    <div class="settings-pane" id="pane-exports">
+      <h3>Excel files</h3>
+      <div id="exports-list"><p class="mut">Loading...</p></div>
+    </div>
+    <div class="settings-pane" id="pane-updater">
+      <h3>Updater</h3>
+      <p class="mut" id="app-update-web">The desktop app checks for its own updates here. In the browser you always get the latest version.</p>
       <div class="settings-group" id="app-update-group" style="display:none">
         <div class="settings-group-label">Desktop app</div>
         <p class="mut" id="app-version-text">Version —</p>
         <button class="btn-pill" id="check-app-update">CHECK FOR UPDATES</button>
       </div>
+    </div>
+    <div id="settings-savebar">
+      <p class="mut" id="set-save-msg" role="status"></p>
+      <button class="btn-pill" id="set-save">SAVE</button>
     </div>
   </div>
 </div>
@@ -1125,15 +1132,9 @@
 <script>
 // the Supabase API base
 var API = 'https://vmgtlszxilzrwcalmtrc.supabase.co/functions/v1/app';
-var OP_KEY = 'msx-opkey';
 var $ = function (id) { return document.getElementById(id); };
-function opKey() { return (localStorage.getItem(OP_KEY) || '').trim(); }
-function dataHeaders() {
-  var h = { 'Content-Type': 'application/json' };
-  var k = opKey();
-  if (k) h['x-ingest-key'] = k;
-  return h;
-}
+function dataHeaders() { return { 'Content-Type': 'application/json' }; }
+localStorage.removeItem('msx-opkey'); // the old operator key is no longer used; don't leave it on disk
 var state = null, chPicker = null, myTickerSet = {}, myPositions = [];
 
 // ---------- theme ----------
@@ -1168,6 +1169,7 @@ var appSettings = null;
 function openSettings(pane) {
   $('overlay').style.display = 'block'; $('settings-modal').classList.add('open');
   document.body.classList.add('modal-open');
+  saveMsg('');
   showSettingsPane(pane || 'appearance');
   if (pane === 'exports') loadExports();
 }
@@ -1175,6 +1177,7 @@ function closeSettings() { $('overlay').style.display = 'none'; $('settings-moda
 function showSettingsPane(pane) {
   Array.prototype.forEach.call($('settings-modal').querySelectorAll('.settings-nav'), function (b) { b.classList.toggle('on', b.getAttribute('data-pane') === pane); });
   Array.prototype.forEach.call($('settings-modal').querySelectorAll('.settings-pane'), function (p) { p.classList.toggle('on', p.id === 'pane-' + pane); });
+  $('settings-modal').classList.toggle('has-save', pane === 'general' || pane === 'schedule');
   if (pane === 'exports' && !$('exports-list').getAttribute('data-loaded')) loadExports();
 }
 $('menu-btn').onclick = function () { openSettings('appearance'); };
@@ -1190,7 +1193,6 @@ function loadAppSettings() {
     appSettings = s || {};
     $('set-name').value = appSettings.display_name || '';
     $('set-email').value = appSettings.digest_email || '';
-    $('set-opkey').value = opKey();
     setFreqUI('freq-price', appSettings.price_update_freq || 'daily');
     setFreqUI('freq-company', appSettings.company_refresh_freq || 'monthly');
     setFreqUI('freq-digest', appSettings.digest_freq || 'daily');
@@ -1227,50 +1229,59 @@ function reflectMaster() {
   $(id).onclick = function () { setNtf(id, !ntfOn(id)); if (id === 'ntf-master') reflectMaster(); };
 });
 
-// Settings save buttons: reflect the change in-memory immediately, capture it in the offline
-// queue, then flash a gray "SAVED" for 1.5s (locked, non-interruptible) and revert. Deliberately
-// NOT the green persistent .done — with the write queue there's no "save failed" to report here:
-// an offline save is captured locally and the connection light says whether it's live on the
-// server yet. Button = "we got it," light = "and here's whether it synced." See CLAUDE.md.
-function wireSaveSchedule(btn, buildPayload, onSuccess) {
-  var idleLabel = btn.textContent;
-  btn.onclick = function () {
-    if (btn.disabled) return;
-    if (onSuccess) onSuccess();                 // in-memory state updates now, online or offline
-    apiWrite('save_settings', buildPayload());  // captured locally, syncs when it can
-    btn.disabled = true; btn.classList.remove('done'); btn.classList.add('saved'); btn.textContent = 'SAVED';
-    setTimeout(function () {
-      btn.disabled = false; btn.classList.remove('saved'); btn.textContent = idleLabel;
-    }, 1500);
-  };
-}
-wireSaveSchedule($('set-general-save'), function () {
-  var digestFreq = $('freq-digest').querySelector('.on');
+// One SAVE for General + Schedule. It goes straight to the server so the button can say what happened:
+// 200 flashes a gray SAVED, a 4xx or 5xx keeps your edits and says why, and only a dead connection
+// falls back to the offline queue (the connection light then shows it as PENDING).
+function freqOf(id, fallback) { var on = $(id).querySelector('.on'); return on ? on.getAttribute('data-freq') : fallback; }
+function settingsPayload() {
   return {
     display_name: $('set-name').value.trim(), digest_email: $('set-email').value.trim(),
-    digest_freq: digestFreq ? digestFreq.getAttribute('data-freq') : 'daily',
-    email_master_enabled: ntfOn('ntf-master'),
-    notify_listings: ntfOn('ntf-listings'),
-    notify_failures: ntfOn('ntf-failures'),
+    email_master_enabled: ntfOn('ntf-master'), notify_listings: ntfOn('ntf-listings'), notify_failures: ntfOn('ntf-failures'),
+    digest_freq: freqOf('freq-digest', 'daily'),
+    price_update_freq: freqOf('freq-price', 'daily'),
+    company_refresh_freq: freqOf('freq-company', 'monthly'),
+    dividends_update_freq: freqOf('freq-dividends', 'weekly'),
   };
-}, function () {
-  localStorage.setItem(OP_KEY, $('set-opkey').value.trim());
-  appSettings.display_name = $('set-name').value.trim();
-  appSettings.digest_email = $('set-email').value.trim();
-  appSettings.email_master_enabled = ntfOn('ntf-master');
-  appSettings.notify_listings = ntfOn('ntf-listings');
-  appSettings.notify_failures = ntfOn('ntf-failures');
-  $('ms-kicker').textContent = 'MY STOCKS' + (appSettings.display_name ? ' · ' + appSettings.display_name.toUpperCase() : '');
-});
-wireSaveSchedule($('set-updater-save'), function () {
-  var price = $('freq-price').querySelector('.on'), company = $('freq-company').querySelector('.on');
-  var dividends = $('freq-dividends').querySelector('.on');
-  return {
-    price_update_freq: price ? price.getAttribute('data-freq') : 'daily',
-    company_refresh_freq: company ? company.getAttribute('data-freq') : 'monthly',
-    dividends_update_freq: dividends ? dividends.getAttribute('data-freq') : 'weekly',
-  };
-});
+}
+function saveMsg(text, isErr) { $('set-save-msg').textContent = text || ''; $('set-save-msg').classList.toggle('err', !!isErr); }
+function saveFailText(status, error) {
+  if (status === 400) return 'Not saved. ' + (error ? error.charAt(0).toUpperCase() + error.slice(1) + '.' : 'The server refused one of the values.');
+  if (status === 404) return 'Not saved. The server does not have this save yet (404). The backend needs a deploy.';
+  if (status >= 500) return 'Not saved. The server hit an error (' + status + '). Your edits are still here, try again in a minute.';
+  return 'Not saved. The server answered ' + status + '.';
+}
+function applySavedSettings(p) {
+  Object.keys(p).forEach(function (k) { appSettings[k] = p[k]; });
+  $('ms-kicker').textContent = 'MY STOCKS' + (p.display_name ? ' · ' + p.display_name.toUpperCase() : '');
+}
+$('set-save').onclick = function () {
+  var btn = $('set-save');
+  if (btn.disabled) return;
+  var p = settingsPayload();
+  if (p.digest_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.digest_email)) {
+    showSettingsPane('general'); saveMsg('Not saved. That email does not look right.', true); $('set-email').focus(); return;
+  }
+  btn.disabled = true; btn.textContent = 'SAVING…'; saveMsg('');
+  fetch(API + '/data', { method: 'POST', headers: dataHeaders(), body: JSON.stringify(Object.assign({ action: 'save_settings' }, p)) })
+    .then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (b) { return { status: r.status, error: b && b.error }; });
+    }, function () { return { status: 0 }; })
+    .then(function (res) {
+      if (res.status === 200) {
+        applySavedSettings(p); setOnline(true);
+        btn.classList.add('saved'); btn.textContent = 'SAVED';
+        setTimeout(function () { btn.disabled = false; btn.classList.remove('saved'); btn.textContent = 'SAVE'; }, 1500);
+        return;
+      }
+      btn.disabled = false; btn.textContent = 'SAVE';
+      if (res.status === 0) {
+        applySavedSettings(p); apiWrite('save_settings', p);
+        saveMsg('Offline. Saved on this device, it will sync when you reconnect.');
+        return;
+      }
+      saveMsg(saveFailText(res.status, res.error), true);
+    });
+};
 
 function loadExports() {
   $('exports-list').setAttribute('data-loaded', '1');
@@ -1296,9 +1307,8 @@ function loadExports() {
       };
     });
   }).catch(function () {
-    $('exports-list').innerHTML = opKey()
-      ? '<p class="mut">Could not load — check your connection.</p>'
-      : '<p class="mut">Past exports need the operator key in General settings.</p>';
+    $('exports-list').removeAttribute('data-loaded');
+    $('exports-list').innerHTML = '<p class="mut">Could not load past exports. Check your connection and open this tab again.</p>';
   });
 }
 
@@ -1506,7 +1516,7 @@ function flushQueue() {
       method: 'POST', headers: dataHeaders(),
       body: JSON.stringify(Object.assign({ action: e.action }, e.params))
     }).then(function (r) {
-      if (r.status === 401 || r.status === 403) {
+      if (r.status >= 400 && r.status < 500) {
         var denied = wqLoad(); denied.shift(); wqSave(denied); // refused, not offline — do not retry
         connOnline = true;
         return step();
@@ -1606,7 +1616,7 @@ function wireTbar() {
   bind($('tbar-max'), 'toggleMaximize', 'plugin:window|toggle_maximize');
   bind($('tbar-close'), 'close', 'plugin:window|close');
   if (TAURI.updater && TAURI.app) {
-    $('app-update-group').style.display = '';
+    $('app-update-group').style.display = ''; $('app-update-web').style.display = 'none';
     TAURI.app.getVersion().then(function (v) {
       appUpdateStatus('Version ' + v);
       checkForAppUpdate(false);

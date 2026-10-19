@@ -74,13 +74,22 @@ Deno.test("window close and settings close have different names so a modal dismi
   assert(html.includes('id="settings-close" aria-label="Close settings"'));
 });
 
-Deno.test("operator key stays on the device and is sent as x-ingest-key, never in save_settings", () => {
-  assert(html.includes('id="set-opkey"'));
-  assert(html.includes('autocomplete="off"'));
-  assert(html.includes("msx-opkey"));
-  assert(html.includes("'x-ingest-key'"));
-  const start = html.indexOf("wireSaveSchedule($('set-general-save')");
-  const payload = html.slice(start, html.indexOf("}, function () {", start));
-  assert(payload.includes("digest_email"));
-  assert(!payload.includes("set-opkey"), "operator key must not go in the save_settings payload");
+Deno.test("no operator key: no field, no header", () => {
+  assert(!html.includes('id="set-opkey"'));
+  assert(!html.includes("'x-ingest-key'"));
+});
+
+Deno.test("settings tabs: general, schedule, one save that names 400/404/500", () => {
+  for (const pane of ["appearance", "general", "schedule", "exports", "updater"]) {
+    assert(html.includes(`data-pane="${pane}"`), `missing tab ${pane}`);
+    assert(html.includes(`id="pane-${pane}"`), `missing pane ${pane}`);
+  }
+  const schedule = html.slice(html.indexOf('id="pane-schedule"'), html.indexOf('id="pane-exports"'));
+  for (const id of ["ntf-master", "freq-digest", "freq-price", "freq-company", "freq-dividends"]) {
+    assert(schedule.includes(`id="${id}"`), `${id} belongs in Schedule`);
+  }
+  assertEquals(html.match(/class="btn-pill" id="set-save"/g)?.length, 1);
+  for (const code of ["status === 400", "status === 404", "status >= 500", "status === 0"]) {
+    assert(html.includes(code), `save does not handle ${code}`);
+  }
 });
