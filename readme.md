@@ -46,4 +46,4 @@ MSX down? Last confirmed price stays visible with a timestamp. Offline mode keep
 
 Until an installer is on Releases, `cargo tauri dev` opens the window. Expect rough edges; open an issue if something snaps.
 
-Works today. Issues and PRs welcome; say what you changed in the PR.
+Works today. Open an issue if you want something fixed and you are not sending the change yourself. Open a PR when you already have a specific fix, and say what you changed.
