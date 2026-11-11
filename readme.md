@@ -20,9 +20,7 @@ Sunday through Thursday, after MSX closes, ingest runs and history piles up (not
 
 ## How it works
 
-![How it works](docs/how-it-works.svg)
-
-![App layout](docs/app-layout.svg)
+![How it works](docs/how-it-works.png)
 
 One Supabase project holds prices, companies, watchlist, alerts. Scheduled Edge Functions handle ingest, digest, alerts, company refresh, weekly backup. The static site can live on GitHub Pages; email goes through Resend when you configure it.
 
